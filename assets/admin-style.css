@@ -1,0 +1,414 @@
+/* HKOTA Abstract Submission Admin Styles */
+
+.hkota-submissions-container {
+    margin-top: 20px;
+}
+
+.hkota-submissions-container table {
+    width: 100%;
+}
+
+.hkota-submissions-container th,
+.hkota-submissions-container td {
+    padding: 12px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: white;
+}
+
+.status-badge.status-pending {
+    background-color: #f39c12;
+}
+
+.status-badge.status-accepted {
+    background-color: #27ae60;
+}
+
+.status-badge.status-rejected {
+    background-color: #e74c3c;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.action-buttons .button {
+    font-size: 12px;
+    padding: 4px 8px;
+    height: auto;
+    line-height: 1.4;
+}
+
+.update-status {
+    margin-right: 5px;
+}
+
+/* Modal Styles */
+.hkota-modal {
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.hkota-modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 800px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.hkota-modal-header {
+    padding: 20px;
+    background-color: #f1f1f1;
+    border-bottom: 1px solid #ddd;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.hkota-modal-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.hkota-modal-close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.hkota-modal-close:hover,
+.hkota-modal-close:focus {
+    color: #000;
+    text-decoration: none;
+}
+
+.hkota-modal-body {
+    padding: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.submission-detail-grid {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 10px 20px;
+    margin-bottom: 20px;
+}
+
+.submission-detail-label {
+    font-weight: bold;
+    color: #333;
+}
+
+.submission-abstract-content {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-left: 4px solid #0073aa;
+    margin-top: 15px;
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Loading states */
+.button.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.button.loading::after {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: 5px;
+    border: 2px solid currentColor;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: hkota-admin-spin 1s linear infinite;
+}
+
+@keyframes hkota-admin-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Success/Error messages */
+.hkota-admin-message {
+    padding: 12px;
+    margin: 15px 0;
+    border-radius: 4px;
+}
+
+.hkota-admin-message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.hkota-admin-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .action-buttons .button {
+        margin-bottom: 3px;
+    }
+    
+    .hkota-modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+    
+    .submission-detail-grid {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+    
+    .submission-detail-label {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 2px;
+    }
+}
+
+/* Print styles for PDF */
+@media print {
+    .action-buttons,
+    .hkota-modal-header,
+    .no-print {
+        display: none !important;
+    }
+    
+    body {
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+}
+
+/* === REVIEWER MANAGEMENT STYLES === */
+
+.hkota-add-reviewer-section {
+    background: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.hkota-add-reviewer-section h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.hkota-reviewer-search {
+    position: relative;
+    max-width: 450px;
+}
+
+.hkota-reviewer-search label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+
+.hkota-reviewer-search input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.hkota-reviewer-search input[type="text"]:focus {
+    border-color: #0073aa;
+    outline: none;
+    box-shadow: 0 0 0 1px #0073aa;
+}
+
+.hkota-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border-radius: 0 0 4px 4px;
+}
+
+.hkota-search-result-item {
+    padding: 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s ease;
+}
+
+.hkota-search-result-item:hover {
+    background-color: #f8f9fa;
+}
+
+.hkota-search-result-item:last-child {
+    border-bottom: none;
+}
+
+.hkota-search-result-name {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.hkota-search-result-email {
+    color: #666;
+    font-size: 13px;
+}
+
+.hkota-reviewers-list-section h3 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.no-reviewers {
+    padding: 30px 20px;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    border: 2px dashed #ddd;
+    border-radius: 5px;
+    background: #fafafa;
+}
+
+.remove-reviewer-btn {
+    background-color: #dc3232 !important;
+    color: white !important;
+    border-color: #dc3232 !important;
+    font-size: 12px;
+    padding: 4px 8px;
+    height: auto;
+    line-height: 1.4;
+}
+
+.remove-reviewer-btn:hover {
+    background-color: #c02c2c !important;
+    border-color: #c02c2c !important;
+    color: white !important;
+}
+
+.remove-reviewer-btn:focus {
+    box-shadow: 0 0 0 1px #dc3232;
+}
+
+/* Loading overlay */
+#hkota-loading {
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 5px;
+    z-index: 9999;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#hkota-loading .spinner {
+    float: none;
+    margin: 0;
+}
+
+/* Settings postbox styling */
+.hkota-settings-container .postbox {
+    background: white;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.hkota-settings-container .postbox h2.hndle {
+    border-bottom: 1px solid #c3c4c7;
+    margin: 0;
+    padding: 15px 20px;
+    background: #f6f7f7;
+    color: #1d2327;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.hkota-settings-container .postbox .inside {
+    padding: 20px;
+}
+
+/* Responsive adjustments for reviewer management */
+@media (max-width: 768px) {
+    .hkota-add-reviewer-section {
+        padding: 15px;
+    }
+    
+    .hkota-reviewer-search {
+        max-width: 100%;
+    }
+    
+    .hkota-search-result-item {
+        padding: 10px;
+    }
+    
+    .wp-list-table th,
+    .wp-list-table td {
+        padding: 8px 4px;
+    }
+    
+    .remove-reviewer-btn {
+        font-size: 11px;
+        padding: 3px 6px;
+    }
+}
+
+/* Accessibility improvements */
+.hkota-search-result-item:focus {
+    outline: 2px solid #0073aa;
+    background-color: #e6f3ff;
+}
+
+.remove-reviewer-btn:focus {
+    outline: 2px solid #dc3232;
+    outline-offset: 1px;
+}
