@@ -75,30 +75,86 @@ $reviewers = HKOTA_Admin::get_reviewers();
             </div>
         </div>
         
-        <!-- Other Settings (for future development) -->
+        <!-- Deadline Management Section -->
         <div class="postbox" style="margin-top: 20px;">
-            <h2 class="hndle"><span>General Settings</span></h2>
+            <h2 class="hndle"><span>Submission Deadline</span></h2>
             <div class="inside">
-                <div class="notice notice-info">
-                    <p><strong>Additional Settings</strong></p>
-                    <p>Future features will include:</p>
-                    <ul>
-                        <li>Submission deadline management</li>
-                        <li>Email template customization</li>
-                        <li>Form field configuration</li>
-                        <li>Theme and presentation options management</li>
-                        <li>Notification settings</li>
-                        <li>Export/import settings</li>
-                    </ul>
-                </div>
+                <?php settings_errors('hkota_deadline'); ?>
+                
+                <form method="post" action="">
+                    <?php wp_nonce_field('hkota_deadline_settings', 'deadline_nonce'); ?>
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="submission_deadline">Submission Deadline</label>
+                            </th>
+                            <td>
+                                <?php
+                                $current_deadline = get_option('hkota_submission_deadline');
+                                $deadline_input_value = '';
+                                if ($current_deadline) {
+                                    // Convert from UTC to Hong Kong time for display
+                                    $deadline_obj = new DateTime($current_deadline, new DateTimeZone('UTC'));
+                                    $deadline_obj->setTimezone(new DateTimeZone('Asia/Hong_Kong'));
+                                    $deadline_input_value = $deadline_obj->format('Y-m-d\TH:i');
+                                }
+                                ?>
+                                <input type="datetime-local" 
+                                       id="submission_deadline" 
+                                       name="submission_deadline" 
+                                       value="<?php echo esc_attr($deadline_input_value); ?>"
+                                       class="regular-text">
+                                <p class="description">
+                                    Set the deadline for abstract submissions. Time zone: UTC+8 (Hong Kong Time)<br>
+                                    After this date and time, users will not be able to submit or edit their abstracts.
+                                    <?php
+                                    if ($current_deadline) {
+                                        $deadline_obj = new DateTime($current_deadline, new DateTimeZone('UTC'));
+                                        $deadline_hk = clone $deadline_obj;
+                                        $deadline_hk->setTimezone(new DateTimeZone('Asia/Hong_Kong'));
+                                        $now = new DateTime('now', new DateTimeZone('UTC'));
+                                        $is_past = $deadline_obj < $now;
+                                        echo '<br><strong>Current Status:</strong> ';
+                                        if ($is_past) {
+                                            echo '<span style="color: #dc3232;">Deadline has passed - Submissions are closed</span>';
+                                        } else {
+                                            $time_left = $now->diff($deadline_obj);
+                                            if ($time_left->days > 0) {
+                                                echo '<span style="color: #46b450;">Open - ' . $time_left->days . ' days, ' . $time_left->h . ' hours remaining</span>';
+                                            } else {
+                                                echo '<span style="color: #ffb900;">Open - ' . $time_left->h . ' hours, ' . $time_left->i . ' minutes remaining</span>';
+                                            }
+                                        }
+                                    }
+                                    ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="deadline_message">Deadline Message</label>
+                            </th>
+                            <td>
+                                <textarea id="deadline_message" 
+                                          name="deadline_message" 
+                                          rows="3" 
+                                          class="large-text"
+                                          placeholder="Custom message to display when deadline has passed..."><?php echo esc_textarea(get_option('hkota_deadline_message', 'The submission deadline has passed. Abstract submissions are no longer accepted.')); ?></textarea>
+                                <p class="description">
+                                    This message will be displayed to users when the deadline has passed.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <p class="submit">
+                        <?php submit_button('Save Deadline Settings', 'primary', 'submit_deadline_settings', false); ?>
+                        <?php submit_button('Clear Deadline (Allow Unlimited Submissions)', 'secondary', 'clear_deadline', false, array('onclick' => 'return confirm("Are you sure you want to clear the deadline? This will allow unlimited submissions until a new deadline is set.");')); ?>
+                    </p>
+                </form>
             </div>
         </div>
-    </div>
-    
-    <!-- Loading indicator -->
-    <div id="hkota-loading" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 5px; z-index: 9999;">
-        <span class="spinner is-active" style="float: left; margin-right: 10px;"></span>
-        Processing...
     </div>
 </div>
 

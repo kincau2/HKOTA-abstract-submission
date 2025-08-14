@@ -22,11 +22,32 @@
     margin-bottom: 20px;
     border-left: 4px solid #0073aa;
     background: #f7f7f7;
+    border-radius: 4px;
 }
 
 .hkota-notice-info {
     border-left-color: #0073aa;
     background: #f0f8ff;
+}
+
+.hkota-notice-warning {
+    border-left-color: #ffb900;
+    background: #fff8e1;
+    color: #b8860b;
+}
+
+.hkota-notice-error {
+    border-left-color: #d63384;
+    background: #ffeef0;
+    color: #721c24;
+}
+
+.hkota-notice p {
+    margin: 0 0 8px 0;
+}
+
+.hkota-notice p:last-child {
+    margin-bottom: 0;
 }
 
 .hkota-form-group {

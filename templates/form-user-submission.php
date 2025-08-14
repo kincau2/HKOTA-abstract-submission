@@ -1,7 +1,7 @@
 <?php
 /**
  * Template for user abstract submission form
- * Variables available: $user, $existing_submission
+ * Variables available: $user, $existing_submission, $deadline_info
  */
 
 // Helper function for selected attribute
@@ -13,9 +13,29 @@ $get_selected = function($current, $value) {
 <div class="hkota-abstract-form-container">
     <h3>Abstract Submission Form</h3>
     
+    <?php if ($deadline_info['has_deadline'] && !$deadline_info['is_passed']): ?>
+        <div class="hkota-notice hkota-notice-warning">
+            <p><strong>Submission Deadline:</strong> <?php echo esc_html($deadline_info['deadline_formatted']); ?> (Hong Kong Time)</p>
+            <?php if (isset($deadline_info['time_remaining'])): ?>
+                <p><strong>Time Remaining:</strong> 
+                    <?php 
+                    $remaining = $deadline_info['time_remaining'];
+                    if ($remaining['days'] > 0) {
+                        echo esc_html($remaining['days'] . ' days, ' . $remaining['hours'] . ' hours');
+                    } elseif ($remaining['hours'] > 0) {
+                        echo esc_html($remaining['hours'] . ' hours, ' . $remaining['minutes'] . ' minutes');
+                    } else {
+                        echo esc_html($remaining['minutes'] . ' minutes');
+                    }
+                    ?>
+                </p>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+    
     <?php if ($existing_submission): ?>
         <div class="hkota-notice hkota-notice-info">
-            <p>You have already submitted an abstract. You can edit your submission below until the deadline.</p>
+            <p>You have already submitted an abstract. You can edit your submission below<?php echo $deadline_info['has_deadline'] ? ' until the deadline' : ''; ?>.</p>
             <p><strong>Current Status:</strong> <?php echo esc_html(ucfirst($existing_submission->status)); ?></p>
         </div>
     <?php endif; ?>

@@ -437,4 +437,21 @@ jQuery(document).ready(function($) {
         
         $('#select-all-submissions').prop('checked', totalCheckboxes === checkedCheckboxes);
     });
+    
+    // Set minimum datetime to current time for deadline input
+    $(document).ready(function() {
+        // Get current Hong Kong time
+        var now = new Date();
+        var utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+        var hkTime = new Date(utcTime + (8 * 3600000)); // UTC+8
+        
+        var year = hkTime.getFullYear();
+        var month = String(hkTime.getMonth() + 1).padStart(2, '0');
+        var day = String(hkTime.getDate()).padStart(2, '0');
+        var hours = String(hkTime.getHours()).padStart(2, '0');
+        var minutes = String(hkTime.getMinutes()).padStart(2, '0');
+        
+        var minDateTime = year + '-' + month + '-' + day + 'T' + hours + ':' + minutes;
+        $('#submission_deadline').attr('min', minDateTime);
+    });
 });

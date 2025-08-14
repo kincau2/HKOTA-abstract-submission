@@ -27,23 +27,36 @@ class HKOTA_Shortcode {
             ));
         }
         
+        // Check deadline
+        $deadline_info = HKOTA_Admin::get_deadline_info();
+        if ($deadline_info['has_deadline'] && $deadline_info['is_passed']) {
+            return HKOTA_Template_Helper::load_template('form-deadline-passed', array(
+                'deadline_info' => $deadline_info
+            ));
+        }
+        
         $current_user = wp_get_current_user();
         
         // Check user role and render accordingly
         if (current_user_can('hkota_reviewer')) {
             return HKOTA_Template_Helper::load_template('form-reviewer-interface');
         } else {
-            return $this->render_user_form($current_user);
+            return $this->render_user_form($current_user, $deadline_info);
         }
     }
     
-    private function render_user_form($user) {
+    private function render_user_form($user, $deadline_info = null) {
         // Get existing submission if any
         $existing_submission = HKOTA_Database::get_user_submission($user->ID);
         
+        if ($deadline_info === null) {
+            $deadline_info = HKOTA_Admin::get_deadline_info();
+        }
+        
         return HKOTA_Template_Helper::load_template('form-user-submission', array(
             'user' => $user,
-            'existing_submission' => $existing_submission
+            'existing_submission' => $existing_submission,
+            'deadline_info' => $deadline_info
         ));
     }
     
@@ -56,6 +69,11 @@ class HKOTA_Shortcode {
         // Check if user is logged in
         if (!is_user_logged_in()) {
             wp_send_json_error('You must be logged in to submit an abstract.');
+        }
+        
+        // Check deadline
+        if (HKOTA_Admin::is_deadline_passed()) {
+            wp_send_json_error('The submission deadline has passed. You can no longer submit or edit abstracts.');
         }
         
         $current_user = wp_get_current_user();
