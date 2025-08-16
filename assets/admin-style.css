@@ -62,6 +62,18 @@
     color: white;
 }
 
+.delete-submission {
+    background-color: #dc3232;
+    border-color: #cc2d2d;
+    color: white;
+}
+
+.delete-submission:hover {
+    background-color: #b32d2d;
+    border-color: #b32d2d;
+    color: white;
+}
+
 .update-status {
     margin-right: 5px;
 }

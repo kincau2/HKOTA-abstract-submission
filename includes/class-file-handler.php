@@ -179,4 +179,37 @@ class HKOTA_File_Handler {
             'can_upload' => ($submission->status === 'accepted' && HKOTA_Admin::is_deadline_passed())
         );
     }
+    
+    /**
+     * Delete supporting document file for a submission
+     */
+    public static function delete_supporting_document($submission_id) {
+        $submission = HKOTA_Database::get_submission_by_id($submission_id);
+        
+        if (!$submission || empty($submission->supporting_document)) {
+            return true; // No file to delete
+        }
+        
+        $upload_path = self::create_upload_directory();
+        $file_path = $upload_path . '/' . basename($submission->supporting_document);
+        
+        if (file_exists($file_path)) {
+            if (unlink($file_path)) {
+                error_log('HKOTA: Successfully deleted supporting document: ' . $file_path);
+                return true;
+            } else {
+                error_log('HKOTA: Failed to delete supporting document: ' . $file_path);
+                return false;
+            }
+        }
+        
+        return true; // File didn't exist, consider it "deleted"
+    }
+    
+    /**
+     * Clean up all files for a submission (when deleting submission)
+     */
+    public static function cleanup_submission_files($submission_id) {
+        return self::delete_supporting_document($submission_id);
+    }
 }

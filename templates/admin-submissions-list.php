@@ -29,14 +29,12 @@
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
-                        <th scope="col" class="manage-column">Title</th>
                         <th scope="col" class="manage-column">Name</th>
                         <th scope="col" class="manage-column">Email</th>
                         <th scope="col" class="manage-column">Organization</th>
                         <th scope="col" class="manage-column">Theme</th>
                         <th scope="col" class="manage-column">Presentation</th>
                         <th scope="col" class="manage-column">Abstract Title</th>
-                        <th scope="col" class="manage-column">Date</th>
                         <th scope="col" class="manage-column">Status</th>
                         <th scope="col" class="manage-column">Actions</th>
                     </tr>
@@ -44,9 +42,8 @@
                 <tbody>
                     <?php foreach ($submissions as $submission): ?>
                         <tr>
-                            <td><?php echo esc_html($submission->title); ?></td>
                             <td>
-                                <strong><?php echo esc_html($submission->surname . ', ' . $submission->given_name); ?></strong>
+                                <strong><?php echo esc_html($submission->title . " " . $submission->surname . ', ' . $submission->given_name); ?></strong>
                             </td>
                             <td>
                                 <a href="mailto:<?php echo esc_attr($submission->contact_email); ?>">
@@ -60,20 +57,11 @@
                                 ?>
                             </td>
                             <td>
-                                <?php 
-                                $theme = $submission->theme;
-                                echo esc_html(strlen($theme) > 20 ? substr($theme, 0, 20) . '...' : $theme); 
-                                ?>
+                                <?php echo $submission->theme; ?>
                             </td>
                             <td><?php echo esc_html($submission->presentation_preference); ?></td>
                             <td>
-                                <?php 
-                                $title = $submission->abstract_title;
-                                echo esc_html(strlen($title) > 30 ? substr($title, 0, 30) . '...' : $title); 
-                                ?>
-                            </td>
-                            <td>
-                                <?php echo esc_html(date('Y-m-d H:i', strtotime($submission->submission_date))); ?>
+                                <?php echo $submission->abstract_title; ?>
                             </td>
                             <td>
                                 <span class="status-badge status-<?php echo esc_attr($submission->status); ?>">
@@ -112,6 +100,12 @@
                                             data-id="<?php echo esc_attr($submission->id); ?>"
                                             title="View full details">
                                         View Details
+                                    </button>
+                                    <button class="button button-link-delete delete-submission" 
+                                            data-id="<?php echo esc_attr($submission->id); ?>"
+                                            data-name="<?php echo esc_attr($submission->surname . ', ' . $submission->given_name); ?>"
+                                            title="Delete this submission">
+                                        Delete
                                     </button>
                                 </div>
                             </td>

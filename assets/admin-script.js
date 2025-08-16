@@ -318,6 +318,65 @@ jQuery(document).ready(function($) {
         }, 1000);
     });
     
+    // Handle delete submission
+    $('.delete-submission').on('click', function(e) {
+        e.preventDefault();
+        
+        var button = $(this);
+        var submissionId = button.data('id');
+        var submissionName = button.data('name');
+        var row = button.closest('tr');
+        
+        if (!confirm('Are you sure you want to delete the submission by "' + submissionName + '"?\n\nThis action cannot be undone and will permanently remove the submission and any uploaded files.')) {
+            return;
+        }
+        
+        // Add loading state
+        button.addClass('loading').prop('disabled', true);
+        
+        // Prepare data
+        var data = {
+            action: 'delete_submission',
+            submission_id: submissionId,
+            nonce: hkota_admin_ajax.nonce
+        };
+        
+        // Send AJAX request
+        $.post(hkota_admin_ajax.ajax_url, data)
+            .done(function(response) {
+                if (response.success) {
+                    // Remove the row with animation
+                    row.fadeOut(function() {
+                        $(this).remove();
+                        
+                        // Update submission count
+                        var remainingRows = $('.wp-list-table tbody tr').length;
+                        $('.displaying-num').text(remainingRows + ' items');
+                        
+                        // Show "no submissions" message if this was the last one
+                        if (remainingRows === 0) {
+                            $('.hkota-submissions-container').html(
+                                '<div class="notice notice-info">' +
+                                '<p>No submissions found. Submissions will appear here once users start submitting abstracts.</p>' +
+                                '</div>'
+                            );
+                        }
+                    });
+                    
+                    // Show success message
+                    showAdminMessage('Submission deleted successfully.', 'success');
+                } else {
+                    showAdminMessage(response.data || 'Failed to delete submission.', 'error');
+                }
+            })
+            .fail(function() {
+                showAdminMessage('There was an error deleting the submission. Please try again.', 'error');
+            })
+            .always(function() {
+                button.removeClass('loading').prop('disabled', false);
+            });
+    });
+    
     // Handle view details
     $('.view-details').on('click', function(e) {
         e.preventDefault();

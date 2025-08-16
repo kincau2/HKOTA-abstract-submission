@@ -172,4 +172,16 @@ class HKOTA_Database {
             array('%d')
         );
     }
+    
+    public static function delete_submission($submission_id) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
+        
+        return $wpdb->delete(
+            $table_name,
+            array('id' => $submission_id),
+            array('%d')
+        );
+    }
 }
