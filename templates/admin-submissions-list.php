@@ -101,6 +101,13 @@
                                             title="Download PDF report">
                                         Download PDF
                                     </button>
+                                    <?php if (!empty($submission->supporting_document)): ?>
+                                        <button class="button download-supporting-doc" 
+                                                data-id="<?php echo esc_attr($submission->id); ?>"
+                                                title="Download supporting document">
+                                            Download Support Doc
+                                        </button>
+                                    <?php endif; ?>
                                     <button class="button view-details" 
                                             data-id="<?php echo esc_attr($submission->id); ?>"
                                             title="View full details">

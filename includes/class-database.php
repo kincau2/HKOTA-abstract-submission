@@ -35,6 +35,7 @@ class HKOTA_Database {
             submission_date datetime DEFAULT CURRENT_TIMESTAMP,
             status varchar(50) DEFAULT 'pending',
             admin_notes longtext DEFAULT '',
+            supporting_document varchar(500) DEFAULT '',
             PRIMARY KEY (id),
             KEY user_id (user_id)
         ) $charset_collate;";
@@ -156,5 +157,19 @@ class HKOTA_Database {
             "SELECT * FROM $table_name WHERE id = %d",
             $submission_id
         ));
+    }
+    
+    public static function update_supporting_document($submission_id, $file_path) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
+        
+        return $wpdb->update(
+            $table_name,
+            array('supporting_document' => $file_path),
+            array('id' => $submission_id),
+            array('%s'),
+            array('%d')
+        );
     }
 }

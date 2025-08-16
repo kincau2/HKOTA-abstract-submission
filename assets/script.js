@@ -135,4 +135,106 @@ jQuery(document).ready(function($) {
             $(this).next('.error-message').remove();
         }
     });
+    
+    // === FILE UPLOAD HANDLING ===
+    
+    // Handle supporting document upload
+    $('#supporting-document-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        var form = $(this);
+        var submitBtn = $('#upload-document-btn');
+        var messagesDiv = $('#upload-messages');
+        var fileInput = $('#supporting_document');
+        
+        // Validate file selection
+        if (!fileInput[0].files.length) {
+            showUploadMessage('Please select a PDF file to upload.', 'error');
+            return;
+        }
+        
+        var file = fileInput[0].files[0];
+        
+        // Validate file type
+        if (file.type !== 'application/pdf') {
+            showUploadMessage('Please select a PDF file only.', 'error');
+            return;
+        }
+        
+        // Validate file size (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showUploadMessage('File size must be less than 10MB.', 'error');
+            return;
+        }
+        
+        // Disable submit button and show loading state
+        submitBtn.prop('disabled', true).text('Uploading...');
+        messagesDiv.empty();
+        
+        // Prepare form data
+        var formData = new FormData();
+        formData.append('action', 'upload_supporting_document');
+        formData.append('file_upload_nonce', form.find('input[name="file_upload_nonce"]').val());
+        formData.append('supporting_document', file);
+        
+        // Submit via AJAX
+        $.ajax({
+            url: hkota_ajax.ajax_url,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    showUploadMessage('File uploaded successfully!', 'success');
+                    submitBtn.text('Replace Document');
+                    // Add uploaded file info if not already present
+                    if (!$('.uploaded-file-info').length) {
+                        var fileName = file.name;
+                        var fileInfo = '<div class="uploaded-file-info">' +
+                                      '<p><strong>Uploaded File:</strong> ' + fileName + '</p>' +
+                                      '<p><em>You can upload a new file to replace the existing one.</em></p>' +
+                                      '</div>';
+                        form.before(fileInfo);
+                    }
+                } else {
+                    showUploadMessage(response.data || 'Failed to upload file. Please try again.', 'error');
+                }
+            },
+            error: function() {
+                showUploadMessage('There was an error uploading the file. Please try again.', 'error');
+            },
+            complete: function() {
+                submitBtn.prop('disabled', false);
+                if (submitBtn.text() === 'Uploading...') {
+                    submitBtn.text('Upload Document');
+                }
+            }
+        });
+    });
+    
+    // Show upload messages
+    function showUploadMessage(message, type) {
+        var messageDiv = $('<div class="message ' + type + '">' + message + '</div>');
+        
+        // Remove existing messages
+        $('#upload-messages').empty();
+        
+        // Add new message
+        $('#upload-messages').append(messageDiv);
+        
+        // Auto-hide success messages after 5 seconds
+        if (type === 'success') {
+            setTimeout(function() {
+                messageDiv.fadeOut(function() {
+                    $(this).remove();
+                });
+            }, 5000);
+        }
+        
+        // Scroll to message
+        $('html, body').animate({
+            scrollTop: messageDiv.offset().top - 20
+        }, 500);
+    }
 });

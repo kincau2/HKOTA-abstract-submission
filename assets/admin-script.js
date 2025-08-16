@@ -296,6 +296,28 @@ jQuery(document).ready(function($) {
         }, 1000);
     });
     
+    // Handle supporting document download
+    $('.download-supporting-doc').on('click', function(e) {
+        e.preventDefault();
+        
+        var button = $(this);
+        var submissionId = button.data('id');
+        
+        // Add loading state
+        button.addClass('loading').prop('disabled', true);
+        
+        // Create download URL
+        var downloadUrl = hkota_admin_ajax.ajax_url + '?action=download_supporting_document&submission_id=' + submissionId + '&nonce=' + hkota_admin_ajax.nonce;
+        
+        // Open in new window for download
+        window.open(downloadUrl, '_blank');
+        
+        // Remove loading state after a short delay
+        setTimeout(function() {
+            button.removeClass('loading').prop('disabled', false);
+        }, 1000);
+    });
+    
     // Handle view details
     $('.view-details').on('click', function(e) {
         e.preventDefault();

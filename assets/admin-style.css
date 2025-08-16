@@ -50,6 +50,18 @@
     line-height: 1.4;
 }
 
+.download-document-btn {
+    background-color: #0073aa;
+    border-color: #006799;
+    color: white;
+}
+
+.download-document-btn:hover {
+    background-color: #005a87;
+    border-color: #005a87;
+    color: white;
+}
+
 .update-status {
     margin-right: 5px;
 }

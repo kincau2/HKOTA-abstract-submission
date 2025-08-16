@@ -22,6 +22,7 @@ class HKOTA_Admin {
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('wp_ajax_update_submission_status', array($this, 'handle_status_update'));
         add_action('wp_ajax_download_submission_pdf', array($this, 'handle_pdf_download'));
+        add_action('wp_ajax_download_supporting_document', array($this, 'handle_supporting_document_download'));
         
         // Reviewer management AJAX handlers
         add_action('wp_ajax_search_users_for_reviewer', array($this, 'handle_user_search'));
@@ -154,6 +155,30 @@ class HKOTA_Admin {
         
         // Generate and download PDF
         HKOTA_PDF_Generator::generate_submission_pdf($submission);
+    }
+    
+    /**
+     * Handle supporting document download
+     */
+    public function handle_supporting_document_download() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'hkota_admin_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions.');
+        }
+        
+        $submission_id = intval($_POST['submission_id']);
+        
+        if (!$submission_id) {
+            wp_send_json_error('Invalid submission ID.');
+        }
+        
+        // Download the document
+        HKOTA_File_Handler::download_document($submission_id);
     }
     
     /**

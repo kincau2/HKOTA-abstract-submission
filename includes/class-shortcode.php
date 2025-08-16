@@ -26,16 +26,18 @@ class HKOTA_Shortcode {
                 'login_url' => wp_login_url(get_permalink())
             ));
         }
-        
+        $current_user = wp_get_current_user();
         // Check deadline
         $deadline_info = HKOTA_Admin::get_deadline_info();
+        
         if ($deadline_info['has_deadline'] && $deadline_info['is_passed']) {
+            // Get existing submission for deadline passed page
+            $existing_submission = HKOTA_Database::get_user_submission($current_user->ID);
             return HKOTA_Template_Helper::load_template('form-deadline-passed', array(
-                'deadline_info' => $deadline_info
+                'deadline_info' => $deadline_info,
+                'existing_submission' => $existing_submission
             ));
         }
-        
-        $current_user = wp_get_current_user();
         
         // Check user role and render accordingly
         if (current_user_can('hkota_reviewer')) {

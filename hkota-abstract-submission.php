@@ -33,6 +33,7 @@ class HKOTAAbstractSubmission {
         
         // Initialize components conditionally
         new HKOTA_Shortcode();
+        new HKOTA_File_Handler();
         
         // Only initialize admin components in admin context
         if (is_admin()) {
@@ -48,6 +49,7 @@ class HKOTAAbstractSubmission {
         require HKOTA_ABSTRACT_PLUGIN_PATH . 'includes/class-admin.php';
         require HKOTA_ABSTRACT_PLUGIN_PATH . 'includes/class-email.php';
         require HKOTA_ABSTRACT_PLUGIN_PATH . 'includes/class-pdf-generator.php';
+        require HKOTA_ABSTRACT_PLUGIN_PATH . 'includes/class-file-handler.php';
         require HKOTA_ABSTRACT_PLUGIN_PATH . 'vendor/autoload.php';
     }
     
@@ -58,6 +60,9 @@ class HKOTAAbstractSubmission {
 
         // Create necessary database tables
         HKOTA_Database::create_tables();
+        
+        // Create upload directory and .htaccess
+        HKOTA_File_Handler::create_upload_directory();
         
         // Flush rewrite rules
         flush_rewrite_rules();
