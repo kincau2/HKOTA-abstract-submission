@@ -53,13 +53,18 @@ class HKOTA_File_Handler {
             wp_send_json_error('No submission found for this user.');
         }
         
-        if ($submission->status !== 'accepted') {
+        if (!in_array($submission->status, array('awaiting_upload', 'accepted'))) {
             wp_send_json_error('File upload is only allowed for accepted submissions.');
         }
         
-        // Check if deadline has passed
+        // Check if submission deadline has passed (required for file upload)
         if (!HKOTA_Admin::is_deadline_passed()) {
             wp_send_json_error('File upload is only available after the submission deadline.');
+        }
+        
+        // Check if document deadline has passed
+        if (HKOTA_Admin::is_document_deadline_passed()) {
+            wp_send_json_error('The deadline for supporting document uploads has passed.');
         }
         
         // Validate file
@@ -101,11 +106,16 @@ class HKOTA_File_Handler {
         
         // Move uploaded file
         if (move_uploaded_file($file['tmp_name'], $file_path)) {
-            // Update database
+            // Update database with file information
             $result = HKOTA_Database::update_supporting_document($submission->id, $new_filename);
             
             if ($result !== false) {
-                wp_send_json_success('Supporting document uploaded successfully.');
+                // If submission is awaiting upload, change status to accepted
+                if ($submission->status === 'awaiting_upload') {
+                    HKOTA_Database::update_submission_status($submission->id, 'accepted');
+                }
+                
+                wp_send_json_success('Supporting document uploaded successfully. Your submission is now complete!');
             } else {
                 // Remove uploaded file if database update fails
                 unlink($file_path);
@@ -176,7 +186,7 @@ class HKOTA_File_Handler {
         return array(
             'has_file' => !empty($submission->supporting_document),
             'filename' => $submission->supporting_document,
-            'can_upload' => ($submission->status === 'accepted' && HKOTA_Admin::is_deadline_passed())
+            'can_upload' => (in_array($submission->status, array('awaiting_upload', 'accepted')) && !HKOTA_Admin::is_document_deadline_passed())
         );
     }
     

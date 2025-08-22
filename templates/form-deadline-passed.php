@@ -26,15 +26,27 @@
                     <p><strong>Submission Date:</strong> <?php echo esc_html(date('F j, Y \a\t g:i A', strtotime($existing_submission->submission_date))); ?></p>
                     <p><strong>Current Status:</strong> 
                         <span class="status-badge status-<?php echo esc_attr($existing_submission->status); ?>">
-                            <?php echo esc_html(ucfirst($existing_submission->status)); ?>
+                            <?php 
+                            $status_text = $existing_submission->status;
+                            if ($status_text === 'awaiting_upload') {
+                                $status_text = 'Accepted - Awaiting Upload';
+                            } else {
+                                $status_text = ucfirst($status_text);
+                            }
+                            echo esc_html($status_text); 
+                            ?>
                         </span>
                     </p>
                     
-                    <?php if ($existing_submission->status === 'accepted'): ?>
+                    <?php if (in_array($existing_submission->status, array('accepted', 'awaiting_upload'))): ?>
                         <div class="accepted-submission-info">
                             <div class="hkota-notice hkota-notice-success">
                                 <p><strong>Congratulations!</strong> Your abstract has been accepted for presentation.</p>
-                                <p>As part of the next step, please upload a supporting document (PDF format only, max 10MB):</p>
+                                <?php if ($existing_submission->status === 'awaiting_upload'): ?>
+                                    <p><strong>Important:</strong> To complete your submission, please upload a supporting document (PDF format only, max 10MB):</p>
+                                <?php else: ?>
+                                    <p>Your submission is complete. You may still update your supporting document if needed (PDF format only, max 10MB):</p>
+                                <?php endif; ?>
                             </div>
                             
                             <!-- File Upload Section -->
@@ -43,15 +55,49 @@
                                 
                                 <?php
                                 $file_status = HKOTA_File_Handler::get_file_status($existing_submission->id);
+                                $document_deadline_info = HKOTA_Admin::get_document_deadline_info();
                                 ?>
+                                
+                                <!-- Document Deadline Information -->
+                                <?php if ($document_deadline_info['has_deadline']): ?>
+                                    <div class="document-deadline-info">
+                                        <?php if ($document_deadline_info['is_passed']): ?>
+                                            <div class="hkota-notice hkota-notice-error">
+                                                <h4>Document Upload Deadline Passed</h4>
+                                                <p><strong>Document deadline was:</strong> <?php echo esc_html($document_deadline_info['deadline_formatted']); ?> (Hong Kong Time)</p>
+                                                <p><?php echo esc_html($document_deadline_info['message']); ?></p>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="hkota-notice hkota-notice-info">
+                                                <h4>Document Upload Deadline</h4>
+                                                <p><strong>You have until:</strong> <?php echo esc_html($document_deadline_info['deadline_formatted']); ?> (Hong Kong Time)</p>
+                                                <?php if ($document_deadline_info['time_remaining']): ?>
+                                                    <p><strong>Time remaining:</strong> 
+                                                        <?php 
+                                                        $remaining = $document_deadline_info['time_remaining'];
+                                                        if ($remaining['days'] > 0) {
+                                                            echo $remaining['days'] . ' days, ' . $remaining['hours'] . ' hours';
+                                                        } else {
+                                                            echo $remaining['hours'] . ' hours, ' . $remaining['minutes'] . ' minutes';
+                                                        }
+                                                        ?>
+                                                    </p>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
                                 
                                 <?php if ($file_status['has_file']): ?>
                                     <div class="uploaded-file-info">
                                         <p><strong>Uploaded File:</strong> <?php echo esc_html(basename($file_status['filename'])); ?></p>
-                                        <p><em>You can upload a new file to replace the existing one.</em></p>
+                                        <?php if ($file_status['can_upload']): ?>
+                                            <p><em>You can upload a new file to replace the existing one.</em></p>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
                                 
+                                <?php if ($file_status['can_upload']): ?>
                                 <form id="supporting-document-form" enctype="multipart/form-data">
                                     <?php wp_nonce_field('hkota_file_upload_nonce', 'file_upload_nonce'); ?>
                                     
@@ -73,6 +119,16 @@
                                 </form>
                                 
                                 <div id="upload-messages"></div>
+                                <?php else: ?>
+                                    <div class="upload-disabled-info">
+                                        <div class="hkota-notice hkota-notice-warning">
+                                            <p><strong>Document upload is currently not available.</strong></p>
+                                            <?php if ($document_deadline_info['has_deadline'] && $document_deadline_info['is_passed']): ?>
+                                                <p>The deadline for document uploads has passed.</p>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     <?php elseif ($existing_submission->status === 'rejected'): ?>
@@ -198,6 +254,12 @@
         border: 1px solid #c3e6cb;
     }
     
+    .status-badge.status-awaiting_upload {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
     .status-badge.status-rejected {
         background: #f8d7da;
         color: #721c24;
@@ -253,6 +315,19 @@
         background: #e8f5e8;
         border: 1px solid #c3e6cb;
         border-radius: 4px;
+    }
+    
+    .document-deadline-info {
+        margin: 15px 0;
+    }
+    
+    .document-deadline-info h4 {
+        margin-top: 0;
+        margin-bottom: 10px;
+    }
+    
+    .upload-disabled-info {
+        margin: 15px 0;
     }
     
     .deadline-message {

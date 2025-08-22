@@ -155,6 +155,87 @@ $reviewers = HKOTA_Admin::get_reviewers();
                 </form>
             </div>
         </div>
+        
+        <!-- Supporting Document Deadline Section -->
+        <div class="postbox" style="margin-top: 20px;">
+            <h2 class="hndle"><span>Supporting Document Upload Deadline</span></h2>
+            <div class="inside">
+                <?php settings_errors('hkota_document_deadline'); ?>
+                
+                <form method="post" action="">
+                    <?php wp_nonce_field('hkota_document_deadline_settings', 'document_deadline_nonce'); ?>
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th scope="row">
+                                <label for="document_deadline">Document Upload Deadline</label>
+                            </th>
+                            <td>
+                                <?php
+                                $current_doc_deadline = get_option('hkota_document_deadline');
+                                $doc_deadline_input_value = '';
+                                if ($current_doc_deadline) {
+                                    // Convert from UTC to Hong Kong time for display
+                                    $doc_deadline_obj = new DateTime($current_doc_deadline, new DateTimeZone('UTC'));
+                                    $doc_deadline_obj->setTimezone(new DateTimeZone('Asia/Hong_Kong'));
+                                    $doc_deadline_input_value = $doc_deadline_obj->format('Y-m-d\TH:i');
+                                }
+                                ?>
+                                <input type="datetime-local" 
+                                       id="document_deadline" 
+                                       name="document_deadline" 
+                                       value="<?php echo esc_attr($doc_deadline_input_value); ?>"
+                                       class="regular-text">
+                                <p class="description">
+                                    Set the deadline for supporting document uploads (for accepted submissions only). Time zone: UTC+8 (Hong Kong Time)<br>
+                                    After this date and time, users with accepted submissions will not be able to upload supporting documents.
+                                    <?php
+                                    if ($current_doc_deadline) {
+                                        $doc_deadline_obj = new DateTime($current_doc_deadline, new DateTimeZone('UTC'));
+                                        $doc_deadline_hk = clone $doc_deadline_obj;
+                                        $doc_deadline_hk->setTimezone(new DateTimeZone('Asia/Hong_Kong'));
+                                        $now = new DateTime('now', new DateTimeZone('UTC'));
+                                        $is_past = $doc_deadline_obj < $now;
+                                        echo '<br><strong>Current Status:</strong> ';
+                                        if ($is_past) {
+                                            echo '<span style="color: #dc3232;">Document deadline has passed - Uploads are closed</span>';
+                                        } else {
+                                            $time_left = $now->diff($doc_deadline_obj);
+                                            if ($time_left->days > 0) {
+                                                echo '<span style="color: #46b450;">Open - ' . $time_left->days . ' days, ' . $time_left->h . ' hours remaining</span>';
+                                            } else {
+                                                echo '<span style="color: #ffb900;">Open - ' . $time_left->h . ' hours, ' . $time_left->i . ' minutes remaining</span>';
+                                            }
+                                        }
+                                    }
+                                    ?>
+                                </p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">
+                                <label for="document_deadline_message">Document Deadline Message</label>
+                            </th>
+                            <td>
+                                <textarea id="document_deadline_message" 
+                                          name="document_deadline_message" 
+                                          rows="3" 
+                                          class="large-text"
+                                          placeholder="Custom message to display when document deadline has passed..."><?php echo esc_textarea(get_option('hkota_document_deadline_message', 'The deadline for supporting document uploads has passed. You can no longer upload or update your supporting documents.')); ?></textarea>
+                                <p class="description">
+                                    This message will be displayed to users with accepted submissions when the document upload deadline has passed.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                    
+                    <p class="submit">
+                        <?php submit_button('Save Document Deadline Settings', 'primary', 'submit_document_deadline_settings', false); ?>
+                        <?php submit_button('Clear Document Deadline (Allow Unlimited Uploads)', 'secondary', 'clear_document_deadline', false, array('onclick' => 'return confirm("Are you sure you want to clear the document deadline? This will allow unlimited document uploads for accepted submissions.");')); ?>
+                    </p>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 

@@ -96,6 +96,15 @@ class HKOTA_Admin {
             $this->handle_clear_deadline_form();
         }
         
+        // Handle document deadline form submission
+        if (isset($_POST['submit_document_deadline_settings']) && check_admin_referer('hkota_document_deadline_settings', 'document_deadline_nonce')) {
+            $this->handle_document_deadline_form_submission();
+        }
+        
+        if (isset($_POST['clear_document_deadline']) && check_admin_referer('hkota_document_deadline_settings', 'document_deadline_nonce')) {
+            $this->handle_clear_document_deadline_form();
+        }
+        
         HKOTA_Template_Helper::render_template('admin-settings');
     }
     
@@ -113,7 +122,12 @@ class HKOTA_Admin {
         $submission_id = intval($_POST['submission_id']);
         $status = sanitize_text_field($_POST['status']);
         
-        if (!in_array($status, array('accepted', 'rejected'))) {
+        // Map frontend status to backend status
+        if ($status === 'accepted') {
+            $status = 'awaiting_upload';
+        }
+        
+        if (!in_array($status, array('awaiting_upload', 'rejected'))) {
             wp_send_json_error('Invalid status.');
         }
         
@@ -411,6 +425,65 @@ class HKOTA_Admin {
     }
     
     /**
+     * Check if document deadline has passed
+     */
+    public static function is_document_deadline_passed() {
+        $deadline = get_option('hkota_document_deadline');
+        
+        if (empty($deadline)) {
+            return false; // No deadline set
+        }
+        
+        $deadline_obj = new DateTime($deadline, new DateTimeZone('UTC'));
+        $now = new DateTime('now', new DateTimeZone('UTC'));
+        
+        return $deadline_obj < $now;
+    }
+    
+    /**
+     * Get document deadline information
+     */
+    public static function get_document_deadline_info() {
+        $deadline = get_option('hkota_document_deadline');
+        
+        if (empty($deadline)) {
+            return array(
+                'has_deadline' => false,
+                'is_passed' => false,
+                'message' => '',
+                'time_remaining' => null
+            );
+        }
+        
+        $deadline_obj = new DateTime($deadline, new DateTimeZone('UTC'));
+        $deadline_hk = clone $deadline_obj;
+        $deadline_hk->setTimezone(new DateTimeZone('Asia/Hong_Kong'));
+        
+        $now = new DateTime('now', new DateTimeZone('UTC'));
+        $is_passed = $deadline_obj < $now;
+        
+        $info = array(
+            'has_deadline' => true,
+            'is_passed' => $is_passed,
+            'deadline_utc' => $deadline_obj->format('Y-m-d H:i:s'),
+            'deadline_hk' => $deadline_hk->format('Y-m-d H:i:s'),
+            'deadline_formatted' => $deadline_hk->format('F j, Y \a\t g:i A'),
+            'message' => get_option('hkota_document_deadline_message', 'The deadline for supporting document uploads has passed. You can no longer upload or update your supporting documents.')
+        );
+        
+        if (!$is_passed) {
+            $diff = $now->diff($deadline_obj);
+            $info['time_remaining'] = array(
+                'days' => $diff->days,
+                'hours' => $diff->h,
+                'minutes' => $diff->i
+            );
+        }
+        
+        return $info;
+    }
+    
+    /**
      * Handle deadline form submission (non-AJAX)
      */
     private function handle_deadline_form_submission() {
@@ -447,5 +520,44 @@ class HKOTA_Admin {
         delete_option('hkota_submission_deadline');
         
         add_settings_error('hkota_deadline', 'deadline_cleared', 'Deadline cleared successfully. Submissions are now unlimited.', 'success');
+    }
+    
+    /**
+     * Handle document deadline form submission (non-AJAX)
+     */
+    private function handle_document_deadline_form_submission() {
+        $deadline = sanitize_text_field($_POST['document_deadline']);
+        $deadline_message = sanitize_textarea_field($_POST['document_deadline_message']);
+        
+        // Validate deadline format if provided
+        if (!empty($deadline)) {
+            $deadline_obj = DateTime::createFromFormat('Y-m-d\TH:i', $deadline, new DateTimeZone('Asia/Hong_Kong'));
+            if (!$deadline_obj) {
+                add_settings_error('hkota_document_deadline', 'invalid_format', 'Invalid document deadline format.', 'error');
+                return;
+            }
+            
+            // Convert to UTC for storage
+            $deadline_obj->setTimezone(new DateTimeZone('UTC'));
+            $deadline_utc = $deadline_obj->format('Y-m-d H:i:s');
+        } else {
+            $deadline_utc = '';
+        }
+        
+        // Save settings
+        update_option('hkota_document_deadline', $deadline_utc);
+        update_option('hkota_document_deadline_message', $deadline_message);
+        
+        add_settings_error('hkota_document_deadline', 'settings_saved', 'Document deadline settings saved successfully.', 'success');
+    }
+    
+    /**
+     * Handle clear document deadline form submission (non-AJAX)
+     */
+    private function handle_clear_document_deadline_form() {
+        // Clear document deadline settings
+        delete_option('hkota_document_deadline');
+        
+        add_settings_error('hkota_document_deadline', 'deadline_cleared', 'Document deadline cleared successfully. Document uploads are now unlimited for accepted submissions.', 'success');
     }
 }

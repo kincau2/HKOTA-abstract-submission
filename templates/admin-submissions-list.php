@@ -65,7 +65,15 @@
                             </td>
                             <td>
                                 <span class="status-badge status-<?php echo esc_attr($submission->status); ?>">
-                                    <?php echo esc_html(ucfirst($submission->status)); ?>
+                                    <?php 
+                                    $status_text = $submission->status;
+                                    if ($status_text === 'awaiting_upload') {
+                                        $status_text = 'Awaiting Upload';
+                                    } else {
+                                        $status_text = ucfirst($status_text);
+                                    }
+                                    echo esc_html($status_text); 
+                                    ?>
                                 </span>
                             </td>
                             <td>

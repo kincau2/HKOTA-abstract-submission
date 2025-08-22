@@ -33,6 +33,10 @@
     background-color: #27ae60;
 }
 
+.status-badge.status-awaiting_upload {
+    background-color: #f39c12;
+}
+
 .status-badge.status-rejected {
     background-color: #e74c3c;
 }
