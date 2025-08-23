@@ -223,8 +223,70 @@ jQuery(document).ready(function($) {
     
     // === EXISTING SUBMISSION MANAGEMENT CODE ===
     
-    // Handle status update buttons
-    $('.update-status').on('click', function(e) {
+    // Handle accept submission buttons (Oral/E-Poster)
+    $(document).on('click', '.accept-submission', function(e) {
+        e.preventDefault();
+        
+        var button = $(this);
+        var submissionId = button.data('id');
+        var presentationType = button.data('presentation');
+        var row = button.closest('tr');
+        var acceptType = presentationType === 'Oral Presentation' ? 'Oral' : 'E-Poster';
+        
+        if (!confirm('Are you sure you want to accept this submission as ' + acceptType + ' presentation?')) {
+            return;
+        }
+        
+        // Add loading state
+        button.addClass('loading').prop('disabled', true);
+        
+        // Prepare data
+        var data = {
+            action: 'accept_submission_with_type',
+            submission_id: submissionId,
+            presentation_type: presentationType,
+            nonce: hkota_admin_ajax.nonce
+        };
+        
+        // Send AJAX request
+        $.post(hkota_admin_ajax.ajax_url, data)
+            .done(function(response) {
+                if (response.success) {
+                    // Update status badge
+                    var statusBadge = row.find('.status-badge');
+                    statusBadge.removeClass('status-pending status-accepted status-rejected')
+                              .addClass('status-awaiting_upload')
+                              .text('Awaiting Upload');
+                    
+                    // Update presentation type in the table
+                    row.find('td').eq(5).text(presentationType);
+                    row.attr('data-presentation', presentationType);
+                    
+                    // Update submission number if provided
+                    if (response.data && response.data.submission_number) {
+                        row.find('td').eq(0).html('<strong>' + response.data.submission_number + '</strong>');
+                        row.attr('data-submission-number', response.data.submission_number);
+                    }
+                    
+                    // Remove action buttons for this row
+                    row.find('.accept-submission, .update-status[data-status="accepted"]').remove();
+                    
+                    // Show success message
+                    showAdminMessage('Submission accepted as ' + acceptType + ' presentation and email sent to applicant.', 'success');
+                } else {
+                    showAdminMessage(response.data || 'Failed to accept submission.', 'error');
+                }
+            })
+            .fail(function() {
+                showAdminMessage('There was an error accepting the submission. Please try again.', 'error');
+            })
+            .always(function() {
+                button.removeClass('loading').prop('disabled', false);
+            });
+    });
+    
+    // Handle status update buttons (for reject only now)
+    $(document).on('click', '.update-status', function(e) {
         e.preventDefault();
         
         var button = $(this);
@@ -535,4 +597,202 @@ jQuery(document).ready(function($) {
         var minDateTime = year + '-' + month + '-' + day + 'T' + hours + ':' + minutes;
         $('#submission_deadline').attr('min', minDateTime);
     });
+    
+    // === TABLE SORTING AND FILTERING ===
+    
+    var currentSort = { column: null, direction: 'asc' };
+    
+    // Initialize table sorting
+    function initTableSorting() {
+        $('.sortable').on('click', function() {
+            var column = $(this).data('sort');
+            var direction = 'asc';
+            
+            // If clicking the same column, toggle direction
+            if (currentSort.column === column) {
+                direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            }
+            
+            sortTable(column, direction);
+            updateSortIndicators($(this), direction);
+            
+            currentSort = { column: column, direction: direction };
+        });
+    }
+    
+    // Sort table by column
+    function sortTable(column, direction) {
+        var table = $('#submissions-table tbody');
+        var rows = table.find('tr').toArray();
+        
+        rows.sort(function(a, b) {
+            var aVal = $(a).attr('data-' + column) || '';
+            var bVal = $(b).attr('data-' + column) || '';
+            
+            // Handle submission numbers specially (YY-T-NNN format)
+            if (column === 'submission-number') {
+                // Parse submission numbers for proper sorting
+                var aParts = aVal.split('-');
+                var bParts = bVal.split('-');
+                
+                if (aParts.length === 3 && bParts.length === 3) {
+                    // Compare year first
+                    var yearDiff = parseInt(aParts[0]) - parseInt(bParts[0]);
+                    if (yearDiff !== 0) {
+                        return direction === 'asc' ? yearDiff : -yearDiff;
+                    }
+                    
+                    // Then compare type (O comes before P)
+                    var typeDiff = aParts[1].localeCompare(bParts[1]);
+                    if (typeDiff !== 0) {
+                        return direction === 'asc' ? typeDiff : -typeDiff;
+                    }
+                    
+                    // Finally compare sequence number
+                    var seqDiff = parseInt(aParts[2]) - parseInt(bParts[2]);
+                    return direction === 'asc' ? seqDiff : -seqDiff;
+                }
+                
+                // Fallback to string comparison
+                return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            }
+            
+            // Convert to strings for comparison
+            aVal = aVal.toString().toLowerCase();
+            bVal = bVal.toString().toLowerCase();
+            
+            // Handle numeric values for dates
+            if (column === 'submission-date' || column === 'last-modified') {
+                aVal = new Date(aVal).getTime();
+                bVal = new Date(bVal).getTime();
+            }
+            
+            if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        // Rebuild table with sorted rows
+        table.empty().append(rows);
+    }
+    
+    // Update sorting indicators
+    function updateSortIndicators(clickedHeader, direction) {
+        // Clear all indicators
+        $('.sorting-indicator').removeClass('sorted-asc sorted-desc').html('');
+        
+        // Set indicator for current column
+        var indicator = clickedHeader.find('.sorting-indicator');
+        if (direction === 'asc') {
+            indicator.addClass('sorted-asc').html(' ↑');
+        } else {
+            indicator.addClass('sorted-desc').html(' ↓');
+        }
+    }
+    
+    // Initialize table filtering
+    function initTableFiltering() {
+        $('#apply-filters').on('click', function() {
+            applyFilters();
+        });
+        
+        $('#clear-filters').on('click', function() {
+            clearFilters();
+        });
+        
+        // Apply filters on Enter in search box
+        $('#submission-search-input').on('keypress', function(e) {
+            if (e.which === 13) {
+                applyFilters();
+            }
+        });
+        
+        // Real-time search
+        $('#submission-search-input').on('input', function() {
+            var searchTerm = $(this).val().trim();
+            if (searchTerm.length === 0 || searchTerm.length >= 3) {
+                applyFilters();
+            }
+        });
+    }
+    
+    // Apply filters to table
+    function applyFilters() {
+        var presentationFilter = $('#presentation-filter').val();
+        var statusFilter = $('#status-filter').val();
+        var searchTerm = $('#submission-search-input').val().toLowerCase().trim();
+        
+        var visibleRows = 0;
+        
+        $('#submissions-table tbody tr').each(function() {
+            var row = $(this);
+            var show = true;
+            
+            // Presentation filter
+            if (presentationFilter && row.data('presentation') !== presentationFilter) {
+                show = false;
+            }
+            
+            // Status filter
+            if (statusFilter && row.data('status') !== statusFilter) {
+                show = false;
+            }
+            
+            // Search filter
+            if (searchTerm) {
+                var searchableText = [
+                    row.data('name'),
+                    row.data('email'),
+                    row.data('organization'),
+                    row.data('theme'),
+                    row.data('presentation'),
+                    row.data('title')
+                ].join(' ').toLowerCase();
+                
+                if (searchableText.indexOf(searchTerm) === -1) {
+                    show = false;
+                }
+            }
+            
+            if (show) {
+                row.show();
+                visibleRows++;
+            } else {
+                row.hide();
+            }
+        });
+        
+        // Update count
+        updateRowCount(visibleRows);
+    }
+    
+    // Clear all filters
+    function clearFilters() {
+        $('#presentation-filter').val('');
+        $('#status-filter').val('');
+        $('#submission-search-input').val('');
+        
+        // Show all rows
+        $('#submissions-table tbody tr').show();
+        
+        // Update count
+        var totalRows = $('#submissions-table tbody tr').length;
+        updateRowCount(totalRows);
+    }
+    
+    // Update row count display
+    function updateRowCount(count) {
+        var totalRows = $('#submissions-table tbody tr').length;
+        var countText = count + ' items';
+        if (count !== totalRows) {
+            countText += ' (filtered from ' + totalRows + ' total)';
+        }
+        $('.displaying-num').text(countText);
+    }
+    
+    // Initialize table functionality if submissions table exists
+    if ($('#submissions-table').length > 0) {
+        initTableSorting();
+        initTableFiltering();
+    }
 });

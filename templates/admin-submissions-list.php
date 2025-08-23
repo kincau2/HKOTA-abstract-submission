@@ -15,6 +15,25 @@
         <?php else: ?>
             <div class="tablenav top">
                 <div class="alignleft actions">
+                    <!-- Presentation Filter -->
+                    <select id="presentation-filter" class="postform">
+                        <option value="">All Presentations</option>
+                        <option value="Oral Presentation">Oral Presentation</option>
+                        <option value="E-poster presentation">E-poster presentation</option>
+                    </select>
+                    
+                    <!-- Status Filter -->
+                    <select id="status-filter" class="postform">
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="awaiting_upload">Awaiting Upload</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                    
+                    <button type="button" id="apply-filters" class="button">Filter</button>
+                    <button type="button" id="clear-filters" class="button">Clear</button>
+                    
                     <p class="search-box">
                         <label class="screen-reader-text" for="submission-search-input">Search submissions:</label>
                         <input type="search" id="submission-search-input" name="s" value="" placeholder="Search submissions...">
@@ -26,22 +45,57 @@
                 </div>
             </div>
             
-            <table class="wp-list-table widefat fixed striped">
+            <table class="wp-list-table widefat fixed striped sortable-table" id="submissions-table">
                 <thead>
                     <tr>
-                        <th scope="col" class="manage-column">Name</th>
-                        <th scope="col" class="manage-column">Email</th>
-                        <th scope="col" class="manage-column">Organization</th>
-                        <th scope="col" class="manage-column">Theme</th>
-                        <th scope="col" class="manage-column">Presentation</th>
-                        <th scope="col" class="manage-column">Abstract Title</th>
-                        <th scope="col" class="manage-column">Status</th>
+                        <th scope="col" class="manage-column sortable" data-sort="submission-number">
+                            Submission # <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="name">
+                            Name <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="email">
+                            Email <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="organization">
+                            Organization <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="theme">
+                            Theme <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="presentation">
+                            Presentation <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="title">
+                            Abstract Title <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="status">
+                            Status <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="submission-date">
+                            Submitted <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="last-modified">
+                            Last Edit <span class="sorting-indicator"></span>
+                        </th>
                         <th scope="col" class="manage-column">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($submissions as $submission): ?>
-                        <tr>
+                        <tr data-submission-number="<?php echo esc_attr($submission->submission_number ?? ''); ?>"
+                            data-name="<?php echo esc_attr($submission->surname . ', ' . $submission->given_name); ?>" 
+                            data-email="<?php echo esc_attr($submission->contact_email); ?>" 
+                            data-organization="<?php echo esc_attr($submission->organization); ?>" 
+                            data-theme="<?php echo esc_attr($submission->theme); ?>" 
+                            data-presentation="<?php echo esc_attr($submission->presentation_preference); ?>" 
+                            data-title="<?php echo esc_attr($submission->abstract_title); ?>" 
+                            data-status="<?php echo esc_attr($submission->status); ?>"
+                            data-submission-date="<?php echo esc_attr($submission->submission_date); ?>"
+                            data-last-modified="<?php echo esc_attr($submission->last_modified ?? $submission->submission_date); ?>">
+                            <td>
+                                <strong><?php echo esc_html($submission->submission_number ?? 'N/A'); ?></strong>
+                            </td>
                             <td>
                                 <strong><?php echo esc_html($submission->title . " " . $submission->surname . ', ' . $submission->given_name); ?></strong>
                             </td>
@@ -77,13 +131,28 @@
                                 </span>
                             </td>
                             <td>
+                                <?php echo esc_html(date('M j, Y', strtotime($submission->submission_date))); ?>
+                            </td>
+                            <td>
+                                <?php 
+                                $last_modified = $submission->last_modified ?? $submission->submission_date;
+                                echo esc_html(date('M j, Y g:i A', strtotime($last_modified))); 
+                                ?>
+                            </td>
+                            <td>
                                 <div class="action-buttons">
                                     <?php if ($submission->status === 'pending'): ?>
-                                        <button class="button button-primary update-status" 
+                                        <button class="button button-primary accept-submission" 
                                                 data-id="<?php echo esc_attr($submission->id); ?>" 
-                                                data-status="accepted"
-                                                title="Accept this submission">
-                                            Accept
+                                                data-presentation="Oral Presentation"
+                                                title="Accept as Oral Presentation">
+                                            Accept Oral
+                                        </button>
+                                        <button class="button button-primary accept-submission" 
+                                                data-id="<?php echo esc_attr($submission->id); ?>" 
+                                                data-presentation="E-poster presentation"
+                                                title="Accept as E-poster Presentation">
+                                            Accept E-Poster
                                         </button>
                                         <button class="button button-secondary update-status" 
                                                 data-id="<?php echo esc_attr($submission->id); ?>" 

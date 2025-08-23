@@ -21,6 +21,7 @@ class HKOTA_Admin {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('wp_ajax_update_submission_status', array($this, 'handle_status_update'));
+        add_action('wp_ajax_accept_submission_with_type', array($this, 'handle_accept_submission_with_type'));
         add_action('wp_ajax_download_submission_pdf', array($this, 'handle_pdf_download'));
         add_action('wp_ajax_download_supporting_document', array($this, 'handle_supporting_document_download'));
         add_action('wp_ajax_delete_submission', array($this, 'handle_delete_submission'));
@@ -147,6 +148,51 @@ class HKOTA_Admin {
             wp_send_json_success('Status updated successfully and email sent to applicant.');
         } else {
             wp_send_json_error('Failed to update status.');
+        }
+    }
+    
+    public function handle_accept_submission_with_type() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'hkota_admin_nonce')) {
+            wp_send_json_error('Security check failed.');
+        }
+        
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions.');
+        }
+        
+        $submission_id = intval($_POST['submission_id']);
+        $presentation_type = sanitize_text_field($_POST['presentation_type']);
+        
+        // Validate presentation type
+        if (!in_array($presentation_type, array('Oral Presentation', 'E-poster presentation'))) {
+            wp_send_json_error('Invalid presentation type.');
+        }
+        
+        // Get submission details
+        $submission = HKOTA_Database::get_submission_by_id($submission_id);
+        if (!$submission) {
+            wp_send_json_error('Submission not found.');
+        }
+        
+        // Update submission with new presentation type and status
+        $result = HKOTA_Database::accept_submission_with_type($submission_id, $presentation_type);
+        
+        if ($result !== false) {
+            // Get updated submission data for email and response
+            $updated_submission = HKOTA_Database::get_submission_by_id($submission_id);
+            
+            // Send email notification to applicant
+            HKOTA_Email::send_status_notification($updated_submission, 'awaiting_upload');
+            
+            // Return success with updated submission number
+            wp_send_json_success(array(
+                'message' => 'Submission accepted successfully and email sent to applicant.',
+                'submission_number' => $updated_submission->submission_number
+            ));
+        } else {
+            wp_send_json_error('Failed to accept submission.');
         }
     }
     

@@ -87,6 +87,54 @@
     font-size: 12px;
 }
 
+.hkota-form-group .field-instruction {
+    display: block;
+    margin: 5px 0 8px 0;
+    color: #666;
+    font-size: 13px;
+    font-style: italic;
+    line-height: 1.4;
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-left: 3px solid #0073aa;
+    border-radius: 0 4px 4px 0;
+}
+
+.word-count-display {
+    font-size: 12px;
+    margin-top: 5px;
+    text-align: right;
+    color: #666;
+}
+
+.word-count-display .word-count,
+.word-count-display .author-count {
+    font-weight: bold;
+    color: #333;
+}
+
+.word-count-display.over-limit .word-count,
+.word-count-display.over-limit .author-count {
+    color: #d63384;
+}
+
+.word-count-display.near-limit .word-count,
+.word-count-display.near-limit .author-count {
+    color: #fd7e14;
+}
+
+.hkota-form-group input.over-limit,
+.hkota-form-group textarea.over-limit {
+    border-color: #d63384;
+    box-shadow: 0 0 0 2px rgba(214, 51, 132, 0.1);
+}
+
+.hkota-form-group input.near-limit,
+.hkota-form-group textarea.near-limit {
+    border-color: #fd7e14;
+    box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.1);
+}
+
 .hkota-form-group h4 {
     margin: 30px 0 15px 0;
     color: #333;
@@ -219,5 +267,161 @@
     .hkota-form-group textarea,
     .hkota-form-group select {
         font-size: 16px; /* Prevents zoom on iOS */
+    }
+}
+
+/* Help text styling */
+.hkota-form-help-text {
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
+.hkota-form-help-text small {
+    color: #666;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+/* Login required page styling */
+.hkota-abstract-login-required {
+    text-align: center;
+    padding: 40px 20px;
+    background: #f9f9f9;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.hkota-abstract-login-required h3 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 24px;
+}
+
+.hkota-abstract-login-required p {
+    color: #666;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+.hkota-login-actions {
+    margin-top: 25px;
+}
+
+.hkota-login-actions .button {
+    margin: 0 8px;
+    padding: 12px 24px;
+    font-size: 16px;
+    text-decoration: none;
+    border-radius: 4px;
+    display: inline-block;
+    transition: all 0.3s ease;
+}
+
+.hkota-login-actions .button-primary {
+    background-color: #0073aa;
+    color: white;
+    border: 2px solid #0073aa;
+}
+
+.hkota-login-actions .button-primary:hover {
+    background-color: #005a87;
+    border-color: #005a87;
+    color: white;
+}
+
+.hkota-login-actions .button-secondary {
+    background-color: transparent;
+    color: #0073aa;
+    border: 2px solid #0073aa;
+}
+
+.hkota-login-actions .button-secondary:hover {
+    background-color: #0073aa;
+    color: white;
+}
+
+.hkota-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Keywords styling */
+.keywords-help {
+    display: block;
+    margin-bottom: 10px;
+    color: #666;
+    font-style: italic;
+}
+
+.keywords-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.keyword-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.keyword-label {
+    min-width: 80px;
+    font-weight: 500;
+    color: #333;
+    margin: 0;
+}
+
+.keyword-field input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+}
+
+.keyword-field input:focus {
+    border-color: #0073aa;
+    outline: none;
+    box-shadow: 0 0 0 1px rgba(0, 115, 170, 0.1);
+}
+
+.keyword-field input:valid {
+    border-color: #46b450;
+}
+
+.keyword-field input:invalid:not(:focus):not(:placeholder-shown) {
+    border-color: #dc3232;
+}
+
+.keyword-field input.duplicate-keyword {
+    border-color: #dc3232;
+    background-color: #fff0f0;
+}
+
+.keyword-field input.duplicate-keyword:focus {
+    box-shadow: 0 0 0 1px rgba(220, 50, 50, 0.1);
+}
+
+.hkota-submit-btn.keywords-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Responsive keywords */
+@media (min-width: 768px) {
+    .keywords-container {
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+    
+    .keyword-field {
+        gap: 15px;
+    }
+    
+    .keyword-label {
+        min-width: 90px;
     }
 }
