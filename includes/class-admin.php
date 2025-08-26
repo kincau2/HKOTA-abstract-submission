@@ -25,6 +25,7 @@ class HKOTA_Admin {
         add_action('wp_ajax_download_submission_pdf', array($this, 'handle_pdf_download'));
         add_action('wp_ajax_download_supporting_document', array($this, 'handle_supporting_document_download'));
         add_action('wp_ajax_delete_submission', array($this, 'handle_delete_submission'));
+        add_action('wp_ajax_get_rating_details', array($this, 'handle_get_rating_details'));
         
         // Reviewer management AJAX handlers
         add_action('wp_ajax_search_users_for_reviewer', array($this, 'handle_user_search'));
@@ -123,11 +124,6 @@ class HKOTA_Admin {
         $submission_id = intval($_POST['submission_id']);
         $status = sanitize_text_field($_POST['status']);
         
-        // Map frontend status to backend status
-        if ($status === 'accepted') {
-            $status = 'awaiting_upload';
-        }
-        
         if (!in_array($status, array('awaiting_upload', 'rejected'))) {
             wp_send_json_error('Invalid status.');
         }
@@ -197,13 +193,25 @@ class HKOTA_Admin {
     }
     
     public function handle_pdf_download() {
-        // Verify nonce
-        if (!wp_verify_nonce($_GET['nonce'], 'hkota_admin_nonce')) {
+        // Verify nonce - check both admin and frontend nonces
+        $nonce_verified = false;
+        if (isset($_GET['nonce'])) {
+            // Check admin nonce first
+            if (wp_verify_nonce($_GET['nonce'], 'hkota_admin_nonce')) {
+                $nonce_verified = true;
+            }
+            // Check frontend nonce if admin nonce fails
+            elseif (wp_verify_nonce($_GET['nonce'], 'hkota_abstract_nonce')) {
+                $nonce_verified = true;
+            }
+        }
+        
+        if (!$nonce_verified) {
             wp_die('Security check failed');
         }
         
-        // Check permissions
-        if (!current_user_can('manage_options')) {
+        // Check permissions - allow admin or reviewer access
+        if (!current_user_can('manage_options') && !current_user_can('hkota_reviewer')) {
             wp_die('Insufficient permissions.');
         }
         
@@ -604,6 +612,46 @@ class HKOTA_Admin {
         // Clear document deadline settings
         delete_option('hkota_document_deadline');
         
-        add_settings_error('hkota_document_deadline', 'deadline_cleared', 'Document deadline cleared successfully. Document uploads are now unlimited for accepted submissions.', 'success');
+        add_settings_error('hkota_document_deadline', 'deadline_cleared', 'Document deadline cleared successfully. Document uploads are now unlimited for submissions awaiting upload.', 'success');
+    }
+
+    /**
+     * Handle get rating details AJAX request
+     */
+    public function handle_get_rating_details() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'hkota_admin_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Insufficient permissions.');
+        }
+        
+        $submission_id = intval($_POST['submission_id']);
+        
+        if (!$submission_id) {
+            wp_send_json_error('Invalid submission ID.');
+        }
+        
+        // Get submission details
+        $submission = HKOTA_Database::get_submission_by_id($submission_id);
+        if (!$submission) {
+            wp_send_json_error('Submission not found.');
+        }
+        
+        // Get all ratings for this submission
+        $ratings = HKOTA_Database::get_submission_ratings($submission_id);
+        $avg_rating = HKOTA_Database::get_submission_average_rating($submission_id);
+        
+        // Generate HTML for rating details
+        $html = HKOTA_Template_Helper::load_template('rating-details-modal', array(
+            'submission' => $submission,
+            'ratings' => $ratings,
+            'avg_rating' => $avg_rating
+        ));
+        
+        wp_send_json_success(array('html' => $html));
     }
 }

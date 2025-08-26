@@ -75,7 +75,7 @@
             font-size: 10px;
         }
         .status.pending { background-color: #f39c12; }
-        .status.accepted { background-color: #27ae60; }
+        .status.completed { background-color: #27ae60; }
         .status.rejected { background-color: #e74c3c; }
         .abstract-content {
             background-color: #f9f9f9;

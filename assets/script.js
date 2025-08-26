@@ -1,75 +1,628 @@
 jQuery(document).ready(function($) {
     
+    // Handle multiple submissions interface
+    handleMultipleSubmissions();
+    
+    // Handle reviewer interface if present
+    if ($('.hkota-reviewer-interface').length > 0) {
+        handleReviewerInterface();
+    }
+    
+    function handleReviewerInterface() {
+        // Initialize table functionality
+        initTableSorting();
+        initTableFiltering();
+        initRatingModal();
+        
+        // Handle rate submission button
+        $(document).on('click', '.rate-submission', function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            var submissionId = $button.data('id');
+            var submissionTitle = $button.data('title');
+            var originalText = $button.text();
+            
+            // Extract author name from the table row
+            var $row = $button.closest('tr');
+            var authorName = $row.find('td:nth-child(2)').text().trim();
+            
+            // Add loading state to button
+            $button.addClass('loading').prop('disabled', true).text('Loading...');
+            
+            // Show loading overlay
+            showLoadingOverlay('Loading submission data...');
+            
+            // Load existing rating data if available and open modal
+            openRatingModal(submissionId, submissionTitle, authorName, $button, originalText);
+        });        // Handle view details button (reuse existing functionality)
+        $(document).on('click', '.view-details', function(e) {
+            e.preventDefault();
+            var submissionId = $(this).data('id');
+            var $button = $(this);
+            var originalText = $button.text();
+            
+            $button.addClass('loading').prop('disabled', true).text('Loading...');
+            
+            $.post(hkota_ajax.ajax_url, {
+                action: 'get_submission_details',
+                submission_id: submissionId,
+                nonce: hkota_ajax.nonce
+            })
+            .done(function(response) {
+                if (response.success) {
+                    showSubmissionDetailsModal(response.data.html);
+                } else {
+                    alert('Error: ' + (response.data || 'Unknown error'));
+                }
+            })
+            .fail(function(xhr, status, error) {
+                console.log('AJAX failed:', xhr, status, error);
+                alert('Failed to load submission details. Please try again.');
+            })
+            .always(function() {
+                $button.removeClass('loading').prop('disabled', false).text(originalText);
+            });
+        });
+        
+        // Handle PDF download (reuse existing functionality)
+        $(document).on('click', '.download-pdf', function(e) {
+            e.preventDefault();
+            var submissionId = $(this).data('id');
+            var $button = $(this);
+            var originalText = $button.text();
+            
+            $button.addClass('loading').prop('disabled', true).text('Downloading...');
+            var downloadUrl = hkota_ajax.ajax_url + '?action=download_submission_pdf&submission_id=' + submissionId + '&nonce=' + hkota_ajax.nonce;
+            window.open(downloadUrl, '_blank');
+            
+            setTimeout(function() {
+                $button.removeClass('loading').prop('disabled', false).text(originalText);
+            }, 1000);
+        });
+        
+        // Handle supporting document download
+        $(document).on('click', '.download-supporting-doc', function(e) {
+            e.preventDefault();
+            var submissionId = $(this).data('id');
+            var $button = $(this);
+            var originalText = $button.text();
+            
+            $button.addClass('loading').prop('disabled', true).text('Downloading...');
+            var downloadUrl = hkota_ajax.ajax_url + '?action=download_supporting_document&submission_id=' + submissionId + '&nonce=' + hkota_ajax.nonce;
+            window.open(downloadUrl, '_blank');
+            
+            setTimeout(function() {
+                $button.removeClass('loading').prop('disabled', false).text(originalText);
+            }, 1000);
+        });
+    }
+    
+    function openRatingModal(submissionId, submissionTitle, authorName, $button, originalText) {
+        // Populate rating form
+        $('#rating-submission-id').val(submissionId);
+        $('#rating-project-title').text(submissionTitle);
+        $('#rating-first-author').text(authorName);
+        
+        // Load existing rating if available
+        loadExistingRating(submissionId);
+        
+        // Hide loading overlay and show modal
+        hideLoadingOverlay();
+        $('#rating-modal').show();
+        
+        // Remove loading state from button
+        if ($button) {
+            $button.removeClass('loading').prop('disabled', false);
+            if (originalText) {
+                $button.text(originalText);
+            }
+        }
+    }
+    
+    function loadExistingRating(submissionId) {
+        // Load existing rating data if available
+        $.post(hkota_ajax.ajax_url, {
+            action: 'get_reviewer_rating',
+            submission_id: submissionId,
+            nonce: hkota_ajax.nonce
+        })
+        .done(function(response) {
+            if (response.success && response.data) {
+                var rating = response.data;
+                
+                // Populate rating form with existing data
+                $('[name="innovation_rating"]').val(rating.innovation_rating);
+                $('[name="scientific_merit_rating"]').val(rating.scientific_merit_rating);
+                $('[name="knowledge_contribution_rating"]').val(rating.knowledge_contribution_rating);
+                $('[name="clinical_application_rating"]').val(rating.clinical_application_rating);
+                $('[name="reviewer_comments"]').val(rating.reviewer_comments);
+                
+                // Recalculate scores
+                calculateRatings();
+            }
+        })
+        .fail(function() {
+            console.log('No existing rating found or failed to load.');
+        });
+    }
+    
+    function initRatingModal() {
+        // Handle rating calculation
+        $(document).on('change', '.rating-select', function() {
+            calculateRatings();
+        });
+        
+        // Handle rating form submission
+        $(document).on('submit', '#rating-form', function(e) {
+            e.preventDefault();
+            submitRating();
+        });
+        
+        // Handle modal close
+        $(document).on('click', '.cancel-rating, .hkota-modal-close', function() {
+            $('.hkota-modal').hide();
+        });
+        
+        // Close modal when clicking outside
+        $(document).on('click', '.hkota-modal', function(e) {
+            if (e.target === this) {
+                $(this).hide();
+            }
+        });
+    }
+    
+    function calculateRatings() {
+        var totalScore = 0;
+        var totalWeight = 20; // 3 + 5 + 6 + 6
+        var allRated = true;
+        
+        $('.rating-select').each(function() {
+            var rating = parseFloat($(this).val());
+            var weight = parseFloat($(this).data('weight'));
+            
+            if (rating && weight) {
+                var score = rating * weight;
+                var criterionId = $(this).attr('name').replace('_rating', '').replace('_', '-');
+                $('#' + criterionId + '-score').text(score.toFixed(1));
+                totalScore += score;
+            } else {
+                allRated = false;
+                var criterionId = $(this).attr('name').replace('_rating', '').replace('_', '-');
+                $('#' + criterionId + '-score').text('-');
+            }
+        });
+        
+        if (allRated) {
+            var percentage = (totalScore / (totalWeight * 5)) * 100;
+            $('#total-score').html('<strong>' + percentage.toFixed(1) + '%</strong>');
+            $('#total-rating').text(totalScore.toFixed(1));
+        } else {
+            $('#total-score').html('<strong>0%</strong>');
+            $('#total-rating').text('-');
+        }
+    }
+    
+    function submitRating() {
+        var formData = {
+            action: 'submit_reviewer_rating',
+            submission_id: $('#rating-submission-id').val(),
+            innovation_rating: $('[name="innovation_rating"]').val(),
+            scientific_merit_rating: $('[name="scientific_merit_rating"]').val(),
+            knowledge_contribution_rating: $('[name="knowledge_contribution_rating"]').val(),
+            clinical_application_rating: $('[name="clinical_application_rating"]').val(),
+            reviewer_comments: $('[name="reviewer_comments"]').val(),
+            nonce: hkota_ajax.nonce
+        };
+        
+        var allRated = true;
+        $('.rating-select').each(function() {
+            if (!$(this).val()) {
+                allRated = false;
+            }
+        });
+        
+        if (!allRated) {
+            alert('Please rate all criteria before submitting.');
+            return;
+        }
+        
+        // Show loading state
+        var $submitBtn = $('#rating-form button[type="submit"]');
+        var originalText = $submitBtn.text();
+        $submitBtn.addClass('loading').prop('disabled', true).text('Submitting...');
+        
+        // Submit rating
+        $.post(hkota_ajax.ajax_url, formData)
+        .done(function(response) {
+            console.log('Response received:', response);
+            if (response.success) {
+                alert('Rating submitted successfully!');
+                $('#rating-modal').hide();
+                location.reload(); // Refresh to show updated rating
+            } else {
+                console.log('Error response:', response);
+                alert('Error: ' + (response.data || 'Unknown error'));
+            }
+        })
+        .fail(function(xhr, status, error) {
+            console.log('AJAX failed:', xhr, status, error);
+            alert('Failed to submit rating. Please try again.');
+        })
+        .always(function() {
+            $submitBtn.removeClass('loading').prop('disabled', false).text(originalText);
+        });
+    }
+    
+    function showSubmissionDetailsModal(htmlContent) {
+        var modal = $('#submission-modal');
+        var modalBody = modal.find('#submission-details-content');
+        modalBody.html(htmlContent);
+        modal.show();
+    }
+    
+    // Table functionality (simplified versions of admin functions)
+    function initTableSorting() {
+        $('.sortable').on('click', function() {
+            var column = $(this).data('column');
+            var currentDirection = $(this).hasClass('sorted-asc') ? 'desc' : 'asc';
+            
+            // Update indicators
+            $('.sorting-indicator').removeClass('sorted-asc sorted-desc');
+            $(this).find('.sorting-indicator').addClass('sorted-' + currentDirection);
+            
+            // TODO: Implement actual sorting
+            console.log('Sort by', column, currentDirection);
+        });
+    }
+    
+    function initTableFiltering() {
+        $('#apply-filters, #clear-filters').on('click', function() {
+            // TODO: Implement filtering
+            console.log('Apply/clear filters');
+        });
+        
+        $('#submission-search-input').on('input', function() {
+            // TODO: Implement real-time search
+            console.log('Search:', $(this).val());
+        });
+    }
+    
+    function handleMultipleSubmissions() {
+        // Add new submission button
+        $(document).on('click', '#add-new-submission', function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            
+            // Add loading state to button
+            $button.addClass('loading');
+            showLoadingOverlay('Loading submission form...');
+            
+            loadSubmissionForm();
+        });
+        
+        // Edit submission button
+        $(document).on('click', '.edit-submission', function(e) {
+            e.preventDefault();
+            var submissionId = $(this).data('submission-id');
+            var $button = $(this);
+            
+            // Add loading state to button
+            $button.addClass('loading');
+            showLoadingOverlay('Loading submission for editing...');
+            
+            loadSubmissionForm(submissionId);
+        });
+        
+        // Delete submission button
+        $(document).on('click', '.delete-submission', function(e) {
+            e.preventDefault();
+            var submissionId = $(this).data('submission-id');
+            var title = $(this).data('title');
+            var $button = $(this);
+            
+            if (confirm('Are you sure you want to delete the submission "' + title + '"? This action cannot be undone.')) {
+                $button.addClass('loading');
+                showLoadingOverlay('Deleting submission...');
+                deleteSubmission(submissionId);
+            }
+        });
+        
+        // View submission details
+        $(document).on('click', '.view-submission', function(e) {
+            e.preventDefault();
+            var submissionId = $(this).data('submission-id');
+            var $button = $(this);
+            
+            // Add loading state to button
+            $button.addClass('loading');
+            showLoadingOverlay('Loading submission details...');
+            
+            viewSubmissionDetails(submissionId);
+        });
+        
+        // Upload document button
+        $(document).on('click', '.upload-document', function(e) {
+            e.preventDefault();
+            var submissionId = $(this).data('submission-id');
+            showUploadModal(submissionId);
+        });
+        
+        // Cancel form button
+        $(document).on('click', '.cancel-form', function(e) {
+            e.preventDefault();
+            hideLoadingOverlay(); // Clear any loading states
+            location.reload();
+        });
+        
+        // Modal close buttons
+        $(document).on('click', '.hkota-modal-close, .cancel-upload', function() {
+            $('.hkota-modal').hide();
+            hideLoadingOverlay(); // Clear any loading states
+        });
+        
+        // Close modal when clicking outside
+        $(document).on('click', '.hkota-modal', function(e) {
+            if (e.target === this) {
+                $(this).hide();
+                hideLoadingOverlay(); // Clear any loading states
+            }
+        });
+        
+        // File upload form
+        $(document).on('submit', '#file-upload-form', function(e) {
+            e.preventDefault();
+            handleFileUpload();
+        });
+    }
+    
+    // Loading overlay functions
+    function showLoadingOverlay(message) {
+        var loadingText = message || 'Loading...';
+        $('#loading-overlay .loading-text').text(loadingText);
+        $('#loading-overlay').show();
+    }
+    
+    function hideLoadingOverlay() {
+        $('#loading-overlay').hide();
+        // Remove loading state from all buttons
+        $('.hkota-btn').removeClass('loading');
+    }
+    
+    function loadSubmissionForm(submissionId) {
+        $.post(hkota_ajax.ajax_url, {
+            action: 'get_submission_form',
+            submission_id: submissionId || 0,
+            nonce: hkota_ajax.nonce
+        }, function(response) {
+            hideLoadingOverlay();
+            
+            if (response.success) {
+                var container = $('.hkota-abstract-form-container').first();
+                container.html(response.data.html);
+                initializeForm();
+                $('html, body').animate({ scrollTop: 0 }, 500);
+            } else {
+                alert('Error: ' + response.data);
+            }
+        }).fail(function() {
+            hideLoadingOverlay();
+            alert('Failed to load submission form. Please try again.');
+        });
+    }
+    
+    function deleteSubmission(submissionId) {
+        $.post(hkota_ajax.ajax_url, {
+            action: 'delete_user_submission',
+            submission_id: submissionId,
+            nonce: hkota_ajax.nonce
+        }, function(response) {
+            hideLoadingOverlay();
+            
+            if (response.success) {
+                // Show success message briefly before reload
+                showLoadingOverlay('Submission deleted successfully. Refreshing...');
+                setTimeout(function() {
+                    location.reload();
+                }, 1500);
+            } else {
+                alert('Error: ' + response.data);
+            }
+        }).fail(function() {
+            hideLoadingOverlay();
+            alert('Failed to delete submission. Please try again.');
+        });
+    }
+    
+    function viewSubmissionDetails(submissionId) {
+        $.post(hkota_ajax.ajax_url, {
+            action: 'get_submission_details',
+            submission_id: submissionId,
+            nonce: hkota_ajax.nonce
+        }, function(response) {
+            hideLoadingOverlay();
+            
+            if (response.success) {
+                $('#submission-details-content').html(response.data.html);
+                $('#submission-modal').show();
+            } else {
+                alert('Error: ' + response.data);
+            }
+        }).fail(function() {
+            hideLoadingOverlay();
+            alert('Failed to load submission details. Please try again.');
+        });
+    }
+    
+    function showUploadModal(submissionId) {
+        $('#upload-submission-id').val(submissionId);
+        $('#upload-modal').show();
+    }
+    
+    function handleFileUpload() {
+        var formData = new FormData();
+        var fileInput = $('#supporting_document')[0];
+        var submissionId = $('#upload-submission-id').val();
+        
+        if (!fileInput.files[0]) {
+            alert('Please select a file to upload.');
+            return;
+        }
+        
+        formData.append('action', 'upload_supporting_document');
+        formData.append('supporting_document', fileInput.files[0]);
+        formData.append('submission_id', submissionId);
+        formData.append('file_upload_nonce', $('[name="file_upload_nonce"]').val());
+        
+        // Show progress
+        $('#upload-progress').show();
+        $('.progress-fill').css('width', '0%');
+        
+        $.ajax({
+            url: hkota_ajax.ajax_url,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            xhr: function() {
+                var xhr = new window.XMLHttpRequest();
+                xhr.upload.addEventListener("progress", function(evt) {
+                    if (evt.lengthComputable) {
+                        var percentComplete = evt.loaded / evt.total * 100;
+                        $('.progress-fill').css('width', percentComplete + '%');
+                    }
+                }, false);
+                return xhr;
+            },
+            success: function(response) {
+                $('#upload-progress').hide();
+                if (response.success) {
+                    alert(response.data);
+                    $('#upload-modal').hide();
+                    location.reload();
+                } else {
+                    alert('Error: ' + response.data);
+                }
+            },
+            error: function() {
+                $('#upload-progress').hide();
+                alert('Upload failed. Please try again.');
+            }
+        });
+    }
+    
+    function initializeForm() {
+        // Only initialize form functionality if we're on a page with the submission form
+        if ($('#hkota-abstract-form').length > 0) {
+            // Re-initialize form functionality for loaded form
+            updateKeywordsField();
+            initializeWordCounting();
+            initializeAuthorCounting();
+            initializeKeywordValidation();
+            initializeFormSubmission();
+        }
+    }
+    
+    // Initialize form functionality on page load
+    initializeForm();
+    
     // Handle keyword fields
     function updateKeywordsField() {
         var keywords = [];
         for (var i = 1; i <= 5; i++) {
-            var keyword = $('#keyword_' + i).val().trim();
-            if (keyword) {
-                keywords.push(keyword);
-            }
-        }
-        $('#keywords').val(keywords.join(', '));
-    }
-    
-    // Initialize keywords on page load
-    $(document).ready(function() {
-        updateKeywordsField();
-    });
-    
-    // Update hidden field when any keyword input changes
-    $('[name^="keyword_"]').on('input blur', function() {
-        updateKeywordsField();
-        validateKeywords();
-        
-        // Auto-focus next field when current field is filled
-        var currentNum = parseInt($(this).attr('name').split('_')[1]);
-        var currentValue = $(this).val().trim();
-        
-        if (currentValue && currentNum < 5) {
-            var nextField = $('#keyword_' + (currentNum + 1));
-            if (!nextField.val().trim()) {
-                setTimeout(function() {
-                    nextField.focus();
-                }, 100);
-            }
-        }
-    });
-    
-    // Handle Enter key to move to next field
-    $('[name^="keyword_"]').on('keypress', function(e) {
-        if (e.which === 13) { // Enter key
-            e.preventDefault();
-            var currentNum = parseInt($(this).attr('name').split('_')[1]);
-            if (currentNum < 5) {
-                $('#keyword_' + (currentNum + 1)).focus();
-            } else {
-                // On last field, submit form if valid
-                if ($('.hkota-submit-btn').prop('disabled') === false) {
-                    $('#hkota-abstract-form').submit();
+            var $keywordField = $('#keyword_' + i);
+            if ($keywordField.length > 0) {
+                var keyword = $keywordField.val();
+                if (keyword && keyword.trim && keyword.trim()) {
+                    keywords.push(keyword.trim());
                 }
             }
         }
-    });
+        var $keywordsField = $('#keywords');
+        if ($keywordsField.length > 0) {
+            $keywordsField.val(keywords.join(', '));
+        }
+    }
+    
+    // Initialize keywords on page load
+    function initializeKeywordValidation() {
+        // Only initialize if keyword fields exist
+        if ($('#keyword_1').length === 0) {
+            return;
+        }
+        
+        updateKeywordsField();
+        
+        // Update hidden field when any keyword input changes
+        $(document).off('input blur', '[name^="keyword_"]').on('input blur', '[name^="keyword_"]', function() {
+            updateKeywordsField();
+            validateKeywords();
+            
+            // Auto-focus next field when current field is filled
+            var currentNum = parseInt($(this).attr('name').split('_')[1]);
+            var currentValue = $(this).val();
+            if (currentValue && currentValue.trim && currentValue.trim()) {
+                currentValue = currentValue.trim();
+                
+                if (currentValue && currentNum < 5) {
+                    var nextField = $('#keyword_' + (currentNum + 1));
+                    var nextValue = nextField.val();
+                    if (!nextValue || (nextValue.trim && !nextValue.trim())) {
+                        setTimeout(function() {
+                            nextField.focus();
+                        }, 100);
+                    }
+                }
+            }
+        });
+        
+        // Handle Enter key to move to next field
+        $(document).off('keypress', '[name^="keyword_"]').on('keypress', '[name^="keyword_"]', function(e) {
+            if (e.which === 13) { // Enter key
+                e.preventDefault();
+                var currentNum = parseInt($(this).attr('name').split('_')[1]);
+                if (currentNum < 5) {
+                    $('#keyword_' + (currentNum + 1)).focus();
+                } else {
+                    // On last field, submit form if valid
+                    if ($('.hkota-submit-btn').prop('disabled') === false) {
+                        $('#hkota-abstract-form').submit();
+                    }
+                }
+            }
+        });
+    }
     
     // Validate keywords in real-time
     function validateKeywords() {
+        // Only validate if keyword fields exist
+        if ($('#keyword_1').length === 0) {
+            return true;
+        }
+        
         var filledKeywords = 0;
         var allValid = true;
         
         for (var i = 1; i <= 5; i++) {
             var $input = $('#keyword_' + i);
-            var value = $input.val().trim();
+            if ($input.length === 0) continue;
             
-            if (value) {
+            var value = $input.val();
+            if (value && value.trim && value.trim()) {
+                value = value.trim();
                 filledKeywords++;
                 
                 // Check for duplicates
                 var isDuplicate = false;
                 for (var j = 1; j <= 5; j++) {
-                    if (i !== j && $('#keyword_' + j).val().trim().toLowerCase() === value.toLowerCase()) {
-                        isDuplicate = true;
-                        break;
+                    if (i !== j) {
+                        var $otherInput = $('#keyword_' + j);
+                        if ($otherInput.length > 0) {
+                            var otherValue = $otherInput.val();
+                            if (otherValue && otherValue.trim && otherValue.trim().toLowerCase() === value.toLowerCase()) {
+                                isDuplicate = true;
+                                break;
+                            }
+                        }
                     }
                 }
                 
@@ -425,33 +978,76 @@ jQuery(document).ready(function($) {
         var wordLimitFields = ['abstract_title', 'background', 'methods', 'results', 'conclusion'];
         
         wordLimitFields.forEach(function(fieldId) {
-            var limit = parseInt($('#' + fieldId).data('word-limit'));
-            updateWordCount(fieldId, limit);
-            
-            // Add real-time validation
-            $('#' + fieldId).on('input keyup paste', function() {
+            var field = $('#' + fieldId);
+            if (field.length) {
+                var limit = parseInt(field.data('word-limit'));
                 updateWordCount(fieldId, limit);
-            });
+                
+                // Add real-time validation
+                field.off('input keyup paste').on('input keyup paste', function() {
+                    updateWordCount(fieldId, limit);
+                });
+            }
         });
         
         // Authors field with author limit
-        var authorLimit = parseInt($('#authors').data('author-limit'));
-        updateWordCount('authors', authorLimit, true);
-        
-        $('#authors').on('input keyup paste', function() {
+        var authorsField = $('#authors');
+        if (authorsField.length) {
+            var authorLimit = parseInt(authorsField.data('author-limit'));
             updateWordCount('authors', authorLimit, true);
+            
+            authorsField.off('input keyup paste').on('input keyup paste', function() {
+                updateWordCount('authors', authorLimit, true);
+            });
+        }
+    }
+    
+    function initializeAuthorCounting() {
+        // This is handled in initializeWordCounting
+    }
+    
+    function initializeFormSubmission() {
+        // Add validation to form submission
+        $(document).off('submit', '#hkota-abstract-form').on('submit', '#hkota-abstract-form', function(e) {
+            e.preventDefault();
+            
+            if (!validateWordLimits()) {
+                showFormMessage('Please check the word limits for all fields before submitting.', 'error');
+                return false;
+            }
+            
+            // Submit form via AJAX
+            var formData = $(this).serialize();
+            var submitBtn = $('.hkota-submit-btn');
+            var originalText = submitBtn.text();
+            
+            submitBtn.prop('disabled', true).addClass('loading').text('Submitting...');
+            showLoadingOverlay('Submitting your abstract...');
+            
+            $.post(hkota_ajax.ajax_url, formData + '&action=submit_abstract', function(response) {
+                hideLoadingOverlay();
+                
+                if (response.success) {
+                    showFormMessage(response.data, 'success');
+                    // Reload page after successful submission to show updated list
+                    setTimeout(function() {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showFormMessage(response.data, 'error');
+                }
+            }).fail(function() {
+                hideLoadingOverlay();
+                showFormMessage('Failed to submit. Please try again.', 'error');
+            }).always(function() {
+                submitBtn.prop('disabled', false).removeClass('loading').text(originalText);
+            });
         });
     }
     
-    // Initialize on page load
-    initializeWordCounting();
-    
-    // Add validation to form submission
-    $('#hkota-abstract-form').on('submit', function(e) {
-        if (!validateWordLimits()) {
-            e.preventDefault();
-            showUploadMessage('error', 'Please check the word limits for all fields before submitting.');
-            return false;
-        }
-    });
+    function showFormMessage(message, type) {
+        var messagesDiv = $('#hkota-form-messages');
+        messagesDiv.html('<div class="hkota-notice hkota-notice-' + type + '"><p>' + message + '</p></div>');
+        $('html, body').animate({ scrollTop: messagesDiv.offset().top - 100 }, 500);
+    }
 });

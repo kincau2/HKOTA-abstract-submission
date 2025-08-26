@@ -7,6 +7,15 @@ class HKOTA_Shortcode {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_ajax_submit_abstract', array($this, 'handle_form_submission'));
         add_action('wp_ajax_nopriv_submit_abstract', array($this, 'handle_form_submission'));
+        add_action('wp_ajax_delete_user_submission', array($this, 'handle_delete_submission'));
+        add_action('wp_ajax_get_submission_details', array($this, 'handle_get_submission_details'));
+        add_action('wp_ajax_nopriv_get_submission_details', array($this, 'handle_get_submission_details'));
+        add_action('wp_ajax_get_submission_form', array($this, 'handle_get_submission_form'));
+        
+        // Reviewer rating AJAX handlers
+        add_action('wp_ajax_submit_reviewer_rating', array($this, 'handle_submit_reviewer_rating'));
+        add_action('wp_ajax_get_reviewer_rating', array($this, 'handle_get_reviewer_rating'));
+        
         add_filter('login_redirect', array($this, 'login_redirect'), 10);
         $this->check_redirect_after_login();
     }
@@ -36,27 +45,89 @@ class HKOTA_Shortcode {
         // Check deadline
         $deadline_info = HKOTA_Admin::get_deadline_info();
         
-        if ($deadline_info['has_deadline'] && $deadline_info['is_passed']) {
-            // Get existing submission for deadline passed page
-            $existing_submission = HKOTA_Database::get_user_submission($current_user->ID);
-            return HKOTA_Template_Helper::load_template('form-deadline-passed', array(
-                'deadline_info' => $deadline_info,
-                'existing_submission' => $existing_submission
-            ));
-        }
-        
         // Check user role and render accordingly
         if (current_user_can('hkota_reviewer')) {
             return HKOTA_Template_Helper::load_template('form-reviewer-interface');
         } else {
-            return $this->render_user_form($current_user, $deadline_info);
+            // For regular users, check if deadline has passed
+            if ($deadline_info['has_deadline'] && $deadline_info['is_passed']) {
+                // Get all user submissions
+                $submissions = HKOTA_Database::get_user_submissions($current_user->ID);
+                
+                // If user has no submissions, show deadline passed message
+                if (empty($submissions)) {
+                    return HKOTA_Template_Helper::load_template('form-deadline-passed', array(
+                        'deadline_info' => $deadline_info,
+                        'existing_submission' => null
+                    ));
+                }
+                
+                // If user has submissions, show them the list (they can still upload documents for accepted submissions)
+                return $this->render_user_interface($current_user, $deadline_info);
+            } else {
+                // Deadline not passed, normal flow
+                return $this->render_user_interface($current_user, $deadline_info);
+            }
         }
     }
     
-    private function render_user_form($user, $deadline_info = null) {
-        // Get existing submission if any
-        $existing_submission = HKOTA_Database::get_user_submission($user->ID);
+    private function render_user_interface($user, $deadline_info = null) {
+        if ($deadline_info === null) {
+            $deadline_info = HKOTA_Admin::get_deadline_info();
+        }
         
+        // Get all user submissions
+        $submissions = HKOTA_Database::get_user_submissions($user->ID);
+        
+        // Check if we're editing a specific submission or creating new one
+        $action = isset($_GET['action']) ? sanitize_text_field($_GET['action']) : '';
+        $submission_id = isset($_GET['submission_id']) ? intval($_GET['submission_id']) : 0;
+        
+        if ($action === 'edit' && $submission_id) {
+            // Find the submission to edit
+            $submission_to_edit = null;
+            foreach ($submissions as $submission) {
+                if ($submission->id === $submission_id) {
+                    $submission_to_edit = $submission;
+                    break;
+                }
+            }
+            
+            if ($submission_to_edit) {
+                return $this->render_user_form($user, $deadline_info, $submission_to_edit);
+            }
+        } elseif ($action === 'new') {
+            // Check if deadline has passed - prevent new submissions
+            if ($deadline_info['has_deadline'] && $deadline_info['is_passed']) {
+                // Redirect back to submissions list with error message
+                wp_redirect(add_query_arg('deadline_error', '1', remove_query_arg(array('action', 'submission_id'))));
+                exit;
+            }
+            // Render new submission form
+            return $this->render_user_form($user, $deadline_info, null);
+        }
+        
+        // If user has no submissions and deadline not passed, show form directly
+        if (empty($submissions)) {
+            // Check if deadline has passed - if so, this case is already handled above in main shortcode logic
+            if ($deadline_info['has_deadline'] && $deadline_info['is_passed']) {
+                return HKOTA_Template_Helper::load_template('form-deadline-passed', array(
+                    'deadline_info' => $deadline_info,
+                    'existing_submission' => null
+                ));
+            }
+            return $this->render_user_form($user, $deadline_info, null);
+        }
+        
+        // Show submissions list
+        return HKOTA_Template_Helper::load_template('form-user-submissions-list', array(
+            'user' => $user,
+            'submissions' => $submissions,
+            'deadline_info' => $deadline_info
+        ));
+    }
+    
+    private function render_user_form($user, $deadline_info = null, $existing_submission = null) {
         if ($deadline_info === null) {
             $deadline_info = HKOTA_Admin::get_deadline_info();
         }
@@ -64,7 +135,8 @@ class HKOTA_Shortcode {
         return HKOTA_Template_Helper::load_template('form-user-submission', array(
             'user' => $user,
             'existing_submission' => $existing_submission,
-            'deadline_info' => $deadline_info
+            'deadline_info' => $deadline_info,
+            'is_edit_mode' => !empty($existing_submission)
         ));
     }
     
@@ -79,12 +151,16 @@ class HKOTA_Shortcode {
             wp_send_json_error('You must be logged in to submit an abstract.');
         }
         
-        // Check deadline
-        if (HKOTA_Admin::is_deadline_passed()) {
-            wp_send_json_error('The submission deadline has passed. You can no longer submit or edit abstracts.');
+        // Check deadline for new submissions only
+        $submission_id = isset($_POST['submission_id']) ? intval($_POST['submission_id']) : 0;
+        
+        if (HKOTA_Admin::is_deadline_passed() && empty($submission_id)) {
+            wp_send_json_error('The submission deadline has passed. You can no longer submit new abstracts.');
         }
         
         $current_user = wp_get_current_user();
+        
+        // Get submission ID if editing existing submission
         
         // Sanitize form data
         $data = array(
@@ -105,6 +181,11 @@ class HKOTA_Shortcode {
             'results' => sanitize_textarea_field($_POST['results']),
             'conclusion' => sanitize_textarea_field($_POST['conclusion']),
         );
+        
+        // Add submission_id if editing
+        if ($submission_id) {
+            $data['submission_id'] = $submission_id;
+        }
         
         // Handle keywords - support both individual fields and combined field
         $keywords = '';
@@ -167,13 +248,162 @@ class HKOTA_Shortcode {
         $result = HKOTA_Database::insert_submission($data);
         
         if ($result !== false) {
-            // Send confirmation email
-            HKOTA_Email::send_submission_confirmation($data);
-            
-            wp_send_json_success('Your abstract has been submitted successfully. You will receive a confirmation email shortly.');
+            // Send confirmation email only for new submissions
+            if (!$submission_id) {
+                HKOTA_Email::send_submission_confirmation($data);
+                wp_send_json_success('Your abstract has been submitted successfully. You will receive a confirmation email shortly.');
+            } else {
+                wp_send_json_success('Your abstract has been updated successfully.');
+            }
         } else {
             wp_send_json_error('There was an error submitting your abstract. Please try again.');
         }
+    }
+    
+    /**
+     * Handle user submission deletion
+     */
+    public function handle_delete_submission() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'hkota_abstract_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check if user is logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error('You must be logged in to delete submissions.');
+        }
+        
+        $current_user = wp_get_current_user();
+        $submission_id = intval($_POST['submission_id']);
+        
+        if (!$submission_id) {
+            wp_send_json_error('Invalid submission ID.');
+        }
+        
+        // Get submission to verify ownership and status
+        $submission = HKOTA_Database::get_submission_by_id($submission_id);
+        
+        if (!$submission || $submission->user_id != $current_user->ID) {
+            wp_send_json_error('Submission not found or access denied.');
+        }
+        
+        // Only allow deletion of pending submissions
+        if ($submission->status !== 'pending') {
+            wp_send_json_error('Only pending submissions can be deleted.');
+        }
+        
+        // Delete submission
+        $result = HKOTA_Database::delete_user_submission($submission_id, $current_user->ID);
+        
+        if ($result !== false) {
+            // Clean up any uploaded files
+            HKOTA_File_Handler::cleanup_submission_files($submission_id);
+            wp_send_json_success('Submission deleted successfully.');
+        } else {
+            wp_send_json_error('Failed to delete submission.');
+        }
+    }
+    
+    /**
+     * Handle getting submission details for modal
+     */
+    public function handle_get_submission_details() {
+        // Verify nonce - check both admin and frontend nonces
+        $nonce_verified = false;
+        if (isset($_POST['nonce'])) {
+            // Check frontend nonce first
+            if (wp_verify_nonce($_POST['nonce'], 'hkota_abstract_nonce')) {
+                $nonce_verified = true;
+            }
+            // Check admin nonce if frontend nonce fails
+            elseif (wp_verify_nonce($_POST['nonce'], 'hkota_admin_nonce')) {
+                $nonce_verified = true;
+            }
+        }
+        
+        if (!$nonce_verified) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check if user is logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error('You must be logged in to view submissions.');
+        }
+        
+        $current_user = wp_get_current_user();
+        $submission_id = intval($_POST['submission_id']);
+        
+        if (!$submission_id) {
+            wp_send_json_error('Invalid submission ID.');
+        }
+        
+        // Get submission
+        $submission = HKOTA_Database::get_submission_by_id($submission_id);
+        
+        if (!$submission) {
+            wp_send_json_error('Submission not found.');
+        }
+        
+        // Check access permissions
+        // For regular users, only allow access to their own submissions
+        // For reviewers and admins, allow access to any submission
+        if (!current_user_can('hkota_reviewer') && !current_user_can('administrator') && $submission->user_id != $current_user->ID) {
+            wp_send_json_error('Access denied.');
+        }
+        
+        // Generate HTML for submission details
+        $html = HKOTA_Template_Helper::load_template('submission-details-modal', array(
+            'submission' => $submission
+        ));
+        
+        wp_send_json_success(array('html' => $html));
+    }
+    
+    /**
+     * Handle getting submission form for editing
+     */
+    public function handle_get_submission_form() {
+        // Verify nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'hkota_abstract_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check if user is logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error('You must be logged in to edit submissions.');
+        }
+        
+        $current_user = wp_get_current_user();
+        $submission_id = isset($_POST['submission_id']) ? intval($_POST['submission_id']) : 0;
+        
+        // Check deadline
+        if (HKOTA_Admin::is_deadline_passed()) {
+            wp_send_json_error('The submission deadline has passed. You can no longer edit abstracts.');
+        }
+        
+        $existing_submission = null;
+        if ($submission_id) {
+            // Get existing submission for editing
+            $existing_submission = HKOTA_Database::get_submission_by_id($submission_id);
+            
+            if (!$existing_submission || $existing_submission->user_id != $current_user->ID) {
+                wp_send_json_error('Submission not found or access denied.');
+            }
+        }
+        
+        $deadline_info = HKOTA_Admin::get_deadline_info();
+        
+        // Generate form HTML
+        $html = HKOTA_Template_Helper::load_template('form-user-submission', array(
+            'user' => $current_user,
+            'existing_submission' => $existing_submission,
+            'deadline_info' => $deadline_info,
+            'is_edit_mode' => !empty($existing_submission),
+            'is_ajax_load' => true
+        ));
+        
+        wp_send_json_success(array('html' => $html));
     }
     
     /**
@@ -324,6 +554,100 @@ class HKOTA_Shortcode {
         }
         
         return $author_count;
+    }
+    
+    /**
+     * Handle reviewer rating submission
+     */
+    public function handle_submit_reviewer_rating() {
+        // Check nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'hkota_abstract_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check if user is logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error('User not logged in');
+        }
+        
+        // Check if user has reviewer capability
+        if (!current_user_can('hkota_reviewer') && !current_user_can('administrator')) {
+            wp_send_json_error('You do not have permission to submit ratings');
+        }
+        
+        // Validate input data
+        $submission_id = intval($_POST['submission_id']);
+        $innovation_rating = intval($_POST['innovation_rating']);
+        $scientific_merit_rating = intval($_POST['scientific_merit_rating']);
+        $knowledge_contribution_rating = intval($_POST['knowledge_contribution_rating']);
+        $clinical_application_rating = intval($_POST['clinical_application_rating']);
+        $reviewer_comments = sanitize_textarea_field($_POST['reviewer_comments']);
+        
+        // Validate ratings are between 1-5
+        $ratings = array($innovation_rating, $scientific_merit_rating, $knowledge_contribution_rating, $clinical_application_rating);
+        foreach ($ratings as $rating) {
+            if ($rating < 1 || $rating > 5) {
+                wp_send_json_error('Invalid rating values. Ratings must be between 1 and 5.');
+            }
+        }
+        
+        // Check if submission exists
+        $submission = HKOTA_Database::get_submission_by_id($submission_id);
+        if (!$submission) {
+            wp_send_json_error('Submission not found');
+        }
+        
+        // Prepare rating data
+        $rating_data = array(
+            'submission_id' => $submission_id,
+            'reviewer_user_id' => get_current_user_id(),
+            'innovation_rating' => $innovation_rating,
+            'scientific_merit_rating' => $scientific_merit_rating,
+            'knowledge_contribution_rating' => $knowledge_contribution_rating,
+            'clinical_application_rating' => $clinical_application_rating,
+            'reviewer_comments' => $reviewer_comments
+        );
+        
+        // Save rating
+        $result = HKOTA_Database::save_reviewer_rating($rating_data);
+        
+        if ($result !== false) {
+            wp_send_json_success('Rating submitted successfully');
+        } else {
+            wp_send_json_error('Failed to save rating');
+        }
+    }
+    
+    /**
+     * Handle get reviewer rating
+     */
+    public function handle_get_reviewer_rating() {
+        // Check nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'hkota_abstract_nonce')) {
+            wp_send_json_error('Security check failed');
+        }
+        
+        // Check if user is logged in
+        if (!is_user_logged_in()) {
+            wp_send_json_error('User not logged in');
+        }
+        
+        // Check if user has reviewer capability
+        if (!current_user_can('hkota_reviewer') && !current_user_can('administrator')) {
+            wp_send_json_error('You do not have permission to view ratings');
+        }
+        
+        $submission_id = intval($_POST['submission_id']);
+        $reviewer_user_id = get_current_user_id();
+        
+        // Get existing rating
+        $rating = HKOTA_Database::get_reviewer_rating($reviewer_user_id, $submission_id);
+        
+        if ($rating) {
+            wp_send_json_success($rating);
+        } else {
+            wp_send_json_error('No rating found');
+        }
     }
     
 }

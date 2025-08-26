@@ -445,31 +445,48 @@ jQuery(document).ready(function($) {
         
         var button = $(this);
         var submissionId = button.data('id');
-        var row = button.closest('tr');
         
-        // Get submission data from the row
-        var submissionData = {
-            id: submissionId,
-            title: row.find('td:nth-child(1)').text(),
-            name: row.find('td:nth-child(2)').text(),
-            email: row.find('td:nth-child(3)').text(),
-            organization: row.find('td:nth-child(4)').text(),
-            theme: row.find('td:nth-child(5)').text(),
-            presentation: row.find('td:nth-child(6)').text(),
-            abstractTitle: row.find('td:nth-child(7)').text(),
-            date: row.find('td:nth-child(8)').text(),
-            status: row.find('.status-badge').text()
-        };
+        // Add loading state
+        button.addClass('loading').prop('disabled', true);
         
-        showSubmissionModal(submissionData);
+        // Make AJAX request to get submission details
+        $.post(hkota_admin_ajax.ajax_url, {
+            action: 'get_submission_details',
+            submission_id: submissionId,
+            nonce: hkota_admin_ajax.nonce
+        })
+        .done(function(response) {
+            if (response.success) {
+                // Show modal with submission details
+                showSubmissionDetailsModal(response.data.html);
+            } else {
+                alert('Error: ' + response.data);
+            }
+        })
+        .fail(function() {
+            alert('Failed to load submission details. Please try again.');
+        })
+        .always(function() {
+            button.removeClass('loading').prop('disabled', false);
+        });
     });
     
     // Modal functionality
+    function showSubmissionDetailsModal(htmlContent) {
+        var modal = $('#submission-modal');
+        var modalBody = modal.find('#submission-details-content');
+        
+        // Update modal content with the loaded HTML
+        modalBody.html(htmlContent);
+        modal.show();
+    }
+    
+    // Legacy modal function (keeping for backward compatibility)
     function showSubmissionModal(data) {
         var modal = $('#submission-modal');
         var modalBody = modal.find('#submission-details-content');
         
-        // Build modal content
+        // Build modal content (fallback for cases where AJAX fails)
         var content = `
             <div class="submission-detail-grid">
                 <div class="submission-detail-label">Submission ID:</div>
@@ -795,4 +812,59 @@ jQuery(document).ready(function($) {
         initTableSorting();
         initTableFiltering();
     }
+    
+    // === RATING DETAILS FUNCTIONALITY ===
+    
+    // Handle view rating details button
+    $(document).on('click', '.view-rating-details', function(e) {
+        e.preventDefault();
+        var submissionId = $(this).data('id');
+        var $button = $(this);
+        var originalText = $button.text();
+        
+        $button.addClass('loading').prop('disabled', true).text('Loading...');
+        
+        $.post(hkota_admin_ajax.ajax_url, {
+            action: 'get_rating_details',
+            submission_id: submissionId,
+            nonce: hkota_admin_ajax.nonce
+        })
+        .done(function(response) {
+            if (response.success) {
+                showRatingDetailsModal(response.data.html);
+            } else {
+                alert('Error: ' + (response.data || 'Unknown error'));
+            }
+        })
+        .fail(function(xhr, status, error) {
+            console.log('AJAX failed:', xhr, status, error);
+            alert('Failed to load rating details. Please try again.');
+        })
+        .always(function() {
+            $button.removeClass('loading').prop('disabled', false).text(originalText);
+        });
+    });
+    
+    // Show rating details modal
+    function showRatingDetailsModal(htmlContent) {
+        var modal = $('#rating-modal');
+        var modalBody = modal.find('#rating-details-content');
+        
+        modalBody.html(htmlContent);
+        modal.show();
+    }
+    
+    // Handle modal close buttons
+    $(document).on('click', '.hkota-modal-close, .hkota-modal', function(e) {
+        if (e.target === this) {
+            $(this).closest('.hkota-modal').hide();
+        }
+    });
+    
+    // Handle ESC key to close modals
+    $(document).keydown(function(e) {
+        if (e.keyCode === 27) { // ESC key
+            $('.hkota-modal').hide();
+        }
+    });
 });

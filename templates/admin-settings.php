@@ -12,7 +12,7 @@ $reviewers = HKOTA_Admin::get_reviewers();
     
     <div class="hkota-settings-container">
         
-        <!-- Reviewer Management Section -->
+        <!-- Reviewer Management Section --> 
         <div class="postbox" style="margin-top: 20px;">
             <h2 class="hndle"><span>Reviewer Management</span></h2>
             <div class="inside">
@@ -187,8 +187,8 @@ $reviewers = HKOTA_Admin::get_reviewers();
                                        value="<?php echo esc_attr($doc_deadline_input_value); ?>"
                                        class="regular-text">
                                 <p class="description">
-                                    Set the deadline for supporting document uploads (for accepted submissions only). Time zone: UTC+8 (Hong Kong Time)<br>
-                                    After this date and time, users with accepted submissions will not be able to upload supporting documents.
+                                    Set the deadline for supporting document uploads (for submissions awaiting upload). Time zone: UTC+8 (Hong Kong Time)<br>
+                                    After this date and time, users with submissions awaiting upload will not be able to upload supporting documents.
                                     <?php
                                     if ($current_doc_deadline) {
                                         $doc_deadline_obj = new DateTime($current_doc_deadline, new DateTimeZone('UTC'));
@@ -223,7 +223,7 @@ $reviewers = HKOTA_Admin::get_reviewers();
                                           class="large-text"
                                           placeholder="Custom message to display when document deadline has passed..."><?php echo esc_textarea(get_option('hkota_document_deadline_message', 'The deadline for supporting document uploads has passed. You can no longer upload or update your supporting documents.')); ?></textarea>
                                 <p class="description">
-                                    This message will be displayed to users with accepted submissions when the document upload deadline has passed.
+                                    This message will be displayed to users with submissions awaiting upload when the document upload deadline has passed.
                                 </p>
                             </td>
                         </tr>
@@ -231,7 +231,7 @@ $reviewers = HKOTA_Admin::get_reviewers();
                     
                     <p class="submit">
                         <?php submit_button('Save Document Deadline Settings', 'primary', 'submit_document_deadline_settings', false); ?>
-                        <?php submit_button('Clear Document Deadline (Allow Unlimited Uploads)', 'secondary', 'clear_document_deadline', false, array('onclick' => 'return confirm("Are you sure you want to clear the document deadline? This will allow unlimited document uploads for accepted submissions.");')); ?>
+                        <?php submit_button('Clear Document Deadline (Allow Unlimited Uploads)', 'secondary', 'clear_document_deadline', false, array('onclick' => 'return confirm("Are you sure you want to clear the document deadline? This will allow unlimited document uploads for submissions awaiting upload.");')); ?>
                     </p>
                 </form>
             </div>

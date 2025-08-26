@@ -27,7 +27,7 @@
                         <option value="">All Statuses</option>
                         <option value="pending">Pending</option>
                         <option value="awaiting_upload">Awaiting Upload</option>
-                        <option value="accepted">Accepted</option>
+                        <option value="completed">Completed</option>
                         <option value="rejected">Rejected</option>
                     </select>
                     
@@ -50,6 +50,9 @@
                     <tr>
                         <th scope="col" class="manage-column sortable" data-sort="submission-number">
                             Submission # <span class="sorting-indicator"></span>
+                        </th>
+                        <th scope="col" class="manage-column sortable" data-sort="rating">
+                            Rating <span class="sorting-indicator"></span>
                         </th>
                         <th scope="col" class="manage-column sortable" data-sort="name">
                             Name <span class="sorting-indicator"></span>
@@ -92,9 +95,32 @@
                             data-title="<?php echo esc_attr($submission->abstract_title); ?>" 
                             data-status="<?php echo esc_attr($submission->status); ?>"
                             data-submission-date="<?php echo esc_attr($submission->submission_date); ?>"
-                            data-last-modified="<?php echo esc_attr($submission->last_modified ?? $submission->submission_date); ?>">
+                            data-last-modified="<?php echo esc_attr($submission->last_modified ?? $submission->submission_date); ?>"
+                            data-rating="<?php 
+                                $avg_rating = HKOTA_Database::get_submission_average_rating($submission->id);
+                                echo esc_attr($avg_rating && $avg_rating->total_ratings > 0 ? number_format($avg_rating->average_score, 1) : 'Nil');
+                            ?>">
                             <td>
                                 <strong><?php echo esc_html($submission->submission_number ?? 'N/A'); ?></strong>
+                            </td>
+                            <td class="rating-cell">
+                                <?php 
+                                $avg_rating = HKOTA_Database::get_submission_average_rating($submission->id);
+                                if ($avg_rating && $avg_rating->total_ratings > 0): 
+                                ?>
+                                    <div class="rating-display">
+                                        <span class="rating-score"><?php echo number_format($avg_rating->average_score, 1); ?>%</span>
+                                        <small>(<?php echo $avg_rating->total_ratings; ?> review<?php echo $avg_rating->total_ratings > 1 ? 's' : ''; ?>)</small>
+                                        <br>
+                                        <button class="button button-small view-rating-details" 
+                                                data-id="<?php echo esc_attr($submission->id); ?>"
+                                                title="View rating details">
+                                            View Details
+                                        </button>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="rating-nil">Nil</span>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <strong><?php echo esc_html($submission->title . " " . $submission->surname . ', ' . $submission->given_name); ?></strong>
@@ -123,6 +149,8 @@
                                     $status_text = $submission->status;
                                     if ($status_text === 'awaiting_upload') {
                                         $status_text = 'Awaiting Upload';
+                                    } elseif ($status_text === 'completed') {
+                                        $status_text = 'Completed';
                                     } else {
                                         $status_text = ucfirst($status_text);
                                     }
@@ -203,6 +231,19 @@
         </div>
         <div class="hkota-modal-body">
             <div id="submission-details-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for viewing rating details -->
+<div id="rating-modal" class="hkota-modal" style="display: none;">
+    <div class="hkota-modal-content">
+        <div class="hkota-modal-header">
+            <h2>Rating Details</h2>
+            <span class="hkota-modal-close">&times;</span>
+        </div>
+        <div class="hkota-modal-body">
+            <div id="rating-details-content"></div>
         </div>
     </div>
 </div>

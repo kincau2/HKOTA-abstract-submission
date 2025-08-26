@@ -22,9 +22,9 @@ define('HKOTA_ABSTRACT_VERSION', '1.0.0');
 class HKOTAAbstractSubmission {
     
     public function __construct() {
-        // add_action('init', array($this, 'init'));
-        // register_activation_hook(__FILE__, array($this, 'activate'));
-        // register_deactivation_hook(__FILE__, array($this, 'deactivate'));
+        add_action('init', array($this, 'init'));
+        register_activation_hook(__FILE__, array($this, 'activate'));
+        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
     } 
     
     public function init() {

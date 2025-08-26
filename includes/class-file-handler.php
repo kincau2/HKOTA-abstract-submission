@@ -47,22 +47,30 @@ class HKOTA_File_Handler {
         }
         
         $current_user = wp_get_current_user();
-        $submission = HKOTA_Database::get_user_submission($current_user->ID);
         
-        if (!$submission) {
-            wp_send_json_error('No submission found for this user.');
+        // Get submission ID from POST data
+        $submission_id = isset($_POST['submission_id']) ? intval($_POST['submission_id']) : 0;
+        if (!$submission_id) {
+            wp_send_json_error('Submission ID is required.');
         }
         
-        if (!in_array($submission->status, array('awaiting_upload', 'accepted'))) {
+        // Get the specific submission
+        $submission = HKOTA_Database::get_submission_by_id($submission_id);
+        
+        if (!$submission) {
+            wp_send_json_error('Submission not found.');
+        }
+        
+        // Verify this submission belongs to the current user
+        if ($submission->user_id !== $current_user->ID) {
+            wp_send_json_error('You can only upload documents for your own submissions.');
+        }
+        
+        if (!in_array($submission->status, array('accepted', 'completed'))) {
             wp_send_json_error('File upload is only allowed for accepted submissions.');
         }
         
-        // Check if submission deadline has passed (required for file upload)
-        if (!HKOTA_Admin::is_deadline_passed()) {
-            wp_send_json_error('File upload is only available after the submission deadline.');
-        }
-        
-        // Check if document deadline has passed
+        // Check if document deadline has passed (if set)
         if (HKOTA_Admin::is_document_deadline_passed()) {
             wp_send_json_error('The deadline for supporting document uploads has passed.');
         }
@@ -110,9 +118,9 @@ class HKOTA_File_Handler {
             $result = HKOTA_Database::update_supporting_document($submission->id, $new_filename);
             
             if ($result !== false) {
-                // If submission is awaiting upload, change status to accepted
-                if ($submission->status === 'awaiting_upload') {
-                    HKOTA_Database::update_submission_status($submission->id, 'accepted');
+                // If submission is accepted, change status to completed
+                if ($submission->status === 'accepted') {
+                    HKOTA_Database::update_submission_status($submission->id, 'completed');
                 }
                 
                 wp_send_json_success('Supporting document uploaded successfully. Your submission is now complete!');
@@ -130,15 +138,27 @@ class HKOTA_File_Handler {
      * Handle file download
      */
     public function handle_file_download() {
-        // Verify nonce
-        if (!wp_verify_nonce($_GET['nonce'], 'hkota_admin_nonce')) {
+        // Verify nonce - check both admin and frontend nonces
+        $nonce_verified = false;
+        if (isset($_GET['nonce'])) {
+            // Check admin nonce first
+            if (wp_verify_nonce($_GET['nonce'], 'hkota_admin_nonce')) {
+                $nonce_verified = true;
+            }
+            // Check frontend nonce if admin nonce fails
+            elseif (wp_verify_nonce($_GET['nonce'], 'hkota_abstract_nonce')) {
+                $nonce_verified = true;
+            }
+        }
+        
+        if (!$nonce_verified) {
             wp_die('Security check failed');
         }
         
         $submission_id = intval($_GET['submission_id']);
         
-        // Check permissions - admin or the user who submitted
-        if (!current_user_can('manage_options')) {
+        // Check permissions - admin, reviewer, or the user who submitted
+        if (!current_user_can('manage_options') && !current_user_can('hkota_reviewer')) {
             if (!is_user_logged_in()) {
                 wp_die('Access denied');
             }
@@ -186,7 +206,7 @@ class HKOTA_File_Handler {
         return array(
             'has_file' => !empty($submission->supporting_document),
             'filename' => $submission->supporting_document,
-            'can_upload' => (in_array($submission->status, array('awaiting_upload', 'accepted')) && !HKOTA_Admin::is_document_deadline_passed())
+            'can_upload' => (in_array($submission->status, array('awaiting_upload', 'completed')) && !HKOTA_Admin::is_document_deadline_passed())
         );
     }
     

@@ -1,7 +1,7 @@
 <?php
 /**
  * Template for user abstract submission form
- * Variables available: $user, $existing_submission, $deadline_info
+ * Variables available: $user, $existing_submission, $deadline_info, $is_edit_mode, $is_ajax_load
  */
 
 // Helper function for selected attribute
@@ -9,10 +9,32 @@ $get_selected = function($current, $value) {
     return $current === $value ? 'selected="selected"' : '';
 };
 
+// Check if this is an AJAX-loaded form
+$is_ajax = isset($is_ajax_load) && $is_ajax_load;
+$container_class = $is_ajax ? 'hkota-abstract-form-container-ajax' : 'hkota-abstract-form-container';
+
 ?>
 
-<div class="hkota-abstract-form-container">
-    <h3>Abstract Submission Form</h3>
+<div class="<?php echo $container_class; ?>">
+    <?php if (!$is_ajax): ?>
+        <h3><?php echo isset($is_edit_mode) && $is_edit_mode ? 'Edit Abstract Submission' : 'Abstract Submission Form'; ?></h3>
+        
+        <?php if (isset($is_edit_mode) && $is_edit_mode): ?>
+            <div class="edit-mode-notice">
+                <p><strong>Editing Mode:</strong> You are editing an existing submission.</p>
+                <button type="button" class="hkota-btn hkota-btn-secondary" onclick="window.location.href=window.location.pathname">
+                    <span class="dashicons dashicons-arrow-left-alt"></span> Back to Submissions List
+                </button>
+            </div>
+        <?php endif; ?>
+    <?php else: ?>
+        <div class="form-header-ajax">
+            <h3><?php echo isset($is_edit_mode) && $is_edit_mode ? 'Edit Abstract Submission' : 'New Abstract Submission'; ?></h3>
+            <button type="button" class="hkota-btn hkota-btn-secondary cancel-form">
+                <span class="dashicons dashicons-no-alt"></span> Cancel
+            </button>
+        </div>
+    <?php endif; ?>
     
     <?php if ($deadline_info['has_deadline'] && !$deadline_info['is_passed']): ?>
         <div class="hkota-notice hkota-notice-warning">
@@ -49,6 +71,9 @@ $get_selected = function($current, $value) {
     
     <form id="hkota-abstract-form" method="post">
         <?php wp_nonce_field('hkota_abstract_nonce', 'hkota_nonce'); ?>
+        <?php if (isset($is_edit_mode) && $is_edit_mode && $existing_submission): ?>
+            <input type="hidden" name="submission_id" value="<?php echo esc_attr($existing_submission->id); ?>">
+        <?php endif; ?>
         
         <h4>Personal Information</h4>
         
@@ -224,10 +249,61 @@ $get_selected = function($current, $value) {
         
         <div class="hkota-form-group">
             <button type="submit" class="hkota-submit-btn">
-                <?php echo $existing_submission ? 'Update Submission' : 'Submit Abstract'; ?>
+                <?php echo (isset($is_edit_mode) && $is_edit_mode) ? 'Update Submission' : 'Submit Abstract'; ?>
             </button>
+            <?php if ($is_ajax): ?>
+                <button type="button" class="hkota-btn hkota-btn-secondary cancel-form" style="margin-left: 10px;">
+                    Cancel
+                </button>
+            <?php endif; ?>
         </div>
     </form>
     
     <div id="hkota-form-messages"></div>
 </div>
+
+<?php if (!$is_ajax): ?>
+<style>
+.edit-mode-notice {
+    background: #e8f5e8;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #27ae60;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.edit-mode-notice p {
+    margin: 0;
+    color: #2d5a2d;
+}
+</style>
+<?php else: ?>
+<style>
+/* .hkota-abstract-form-container-ajax {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+} */
+
+.form-header-ajax {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    /* border-bottom: 2px solid #0073aa; */
+}
+
+.form-header-ajax h3 {
+    margin: 0;
+    color: #333;
+}
+</style>
+<?php endif; ?>

@@ -4,19 +4,20 @@ class HKOTA_Database {
     
     public function __construct() {
         $this->create_tables();
-        $this->upgrade_tables();
     }
     
     public static function create_tables() {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
+        $ratings_table = $wpdb->prefix . 'hkota_reviewer_ratings';
         
         $charset_collate = $wpdb->get_charset_collate();
         
+        // Main submissions table
         $sql = "CREATE TABLE $table_name (
             id int(11) NOT NULL AUTO_INCREMENT,
-            user_id bigint(20) NOT NULL,
+            user_id bigint(20) NOT NULL, 
             title varchar(20) NOT NULL,
             surname varchar(255) NOT NULL,
             given_name varchar(255) NOT NULL,
@@ -46,45 +47,28 @@ class HKOTA_Database {
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
-    }
-    
-    public static function upgrade_tables() {
-        global $wpdb;
         
-        $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
+        // Reviewer ratings table
+        $ratings_sql = "CREATE TABLE $ratings_table (
+            id int(11) NOT NULL AUTO_INCREMENT,
+            submission_id int(11) NOT NULL,
+            reviewer_user_id bigint(20) NOT NULL,
+            innovation_rating tinyint(1) NOT NULL,
+            scientific_merit_rating tinyint(1) NOT NULL,
+            knowledge_contribution_rating tinyint(1) NOT NULL,
+            clinical_application_rating tinyint(1) NOT NULL,
+            reviewer_comments longtext DEFAULT '',
+            total_score decimal(5,2) NOT NULL,
+            rating_date datetime DEFAULT CURRENT_TIMESTAMP,
+            last_modified datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY unique_reviewer_submission (submission_id, reviewer_user_id),
+            KEY submission_id (submission_id),
+            KEY reviewer_user_id (reviewer_user_id),
+            FOREIGN KEY (submission_id) REFERENCES $table_name(id) ON DELETE CASCADE
+        ) $charset_collate;";
         
-        // Check if last_modified column exists
-        $last_modified_exists = $wpdb->get_results($wpdb->prepare(
-            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
-             WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'last_modified'",
-            DB_NAME,
-            $table_name
-        ));
-        
-        // Add last_modified column if it doesn't exist
-        if (empty($last_modified_exists)) {
-            $wpdb->query("ALTER TABLE $table_name ADD COLUMN last_modified datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER submission_date");
-            
-            // Initialize last_modified with submission_date for existing records
-            $wpdb->query("UPDATE $table_name SET last_modified = submission_date WHERE last_modified IS NULL");
-        }
-        
-        // Check if submission_number column exists
-        $submission_number_exists = $wpdb->get_results($wpdb->prepare(
-            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
-             WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s AND COLUMN_NAME = 'submission_number'",
-            DB_NAME,
-            $table_name
-        ));
-        
-        // Add submission_number column if it doesn't exist
-        if (empty($submission_number_exists)) {
-            $wpdb->query("ALTER TABLE $table_name ADD COLUMN submission_number varchar(20) DEFAULT NULL AFTER keywords");
-            $wpdb->query("ALTER TABLE $table_name ADD UNIQUE KEY submission_number (submission_number)");
-            
-            // Generate submission numbers for existing records
-            self::generate_missing_submission_numbers();
-        }
+        dbDelta($ratings_sql);
     }
     
     public static function insert_submission($data) {
@@ -92,18 +76,21 @@ class HKOTA_Database {
         
         $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
         
-        // Check if user already has a submission
-        $existing = $wpdb->get_row($wpdb->prepare(
-            "SELECT id FROM $table_name WHERE user_id = %d",
-            $data['user_id']
-        ));
-        
-        if ($existing) {
+        // Check if this is an update (submission_id provided) or new submission
+        if (isset($data['submission_id']) && $data['submission_id']) {
+            // Update existing submission
+            $submission_id = intval($data['submission_id']);
+            
             // Get the existing submission details
             $existing_submission = $wpdb->get_row($wpdb->prepare(
-                "SELECT submission_number, presentation_preference FROM $table_name WHERE user_id = %d",
+                "SELECT submission_number, presentation_preference FROM $table_name WHERE id = %d AND user_id = %d",
+                $submission_id,
                 $data['user_id']
             ));
+            
+            if (!$existing_submission) {
+                return false; // Submission not found or doesn't belong to user
+            }
             
             // Generate submission number if it doesn't exist
             $submission_number = $existing_submission->submission_number;
@@ -136,18 +123,16 @@ class HKOTA_Database {
                     'conclusion' => $data['conclusion'],
                     'keywords' => $data['keywords'],
                     'submission_number' => $submission_number,
-                    'submission_date' => current_time('mysql'),
                     'last_modified' => current_time('mysql')
                 ),
-                array('user_id' => $data['user_id']),
-                array('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'),
-                array('%d')
+                array('id' => $submission_id, 'user_id' => $data['user_id']),
+                array('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'),
+                array('%d', '%d')
             );
         } else {
-            // Generate submission number for new submission
+            // Insert new submission
             $submission_number = self::generate_submission_number($data['presentation_preference']);
             
-            // Insert new submission
             return $wpdb->insert(
                 $table_name,
                 array(
@@ -177,13 +162,24 @@ class HKOTA_Database {
         }
     }
     
+    public static function get_user_submissions($user_id) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
+        
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table_name WHERE user_id = %d ORDER BY submission_date DESC",
+            $user_id
+        ));
+    }
+    
     public static function get_user_submission($user_id) {
         global $wpdb;
         
         $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
         
         return $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM $table_name WHERE user_id = %d",
+            "SELECT * FROM $table_name WHERE user_id = %d ORDER BY submission_date DESC LIMIT 1",
             $user_id
         ));
     }
@@ -328,6 +324,18 @@ class HKOTA_Database {
         );
     }
     
+    public static function delete_user_submission($submission_id, $user_id) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
+        
+        return $wpdb->delete(
+            $table_name,
+            array('id' => $submission_id, 'user_id' => $user_id),
+            array('%d', '%d')
+        );
+    }
+    
     /**
      * Generate a unique submission number with format: YY-T-NNN
      * YY = Year (e.g., 25 for 2025)
@@ -410,5 +418,164 @@ class HKOTA_Database {
                 array('%d')
             );
         }
+    }
+    
+    /**
+     * Insert or update a reviewer rating
+     */
+    public static function save_reviewer_rating($data) {
+        global $wpdb;
+        
+        $ratings_table = $wpdb->prefix . 'hkota_reviewer_ratings';
+        
+        // Calculate total score (weighted)
+        $total_score = (
+            ($data['innovation_rating'] * 3) +
+            ($data['scientific_merit_rating'] * 5) +
+            ($data['knowledge_contribution_rating'] * 6) +
+            ($data['clinical_application_rating'] * 6)
+        );
+        
+        // Convert to percentage (max possible score is 20 * 5 = 100)
+        $total_score_percentage = ($total_score / 100) * 100;
+        
+        $rating_data = array(
+            'submission_id' => $data['submission_id'],
+            'reviewer_user_id' => $data['reviewer_user_id'],
+            'innovation_rating' => $data['innovation_rating'],
+            'scientific_merit_rating' => $data['scientific_merit_rating'],
+            'knowledge_contribution_rating' => $data['knowledge_contribution_rating'],
+            'clinical_application_rating' => $data['clinical_application_rating'],
+            'reviewer_comments' => $data['reviewer_comments'],
+            'total_score' => $total_score_percentage,
+            'last_modified' => current_time('mysql')
+        );
+        
+        // Check if rating already exists
+        $existing_rating = $wpdb->get_row($wpdb->prepare(
+            "SELECT id FROM $ratings_table WHERE submission_id = %d AND reviewer_user_id = %d",
+            $data['submission_id'],
+            $data['reviewer_user_id']
+        ));
+        
+        if ($existing_rating) {
+            // Update existing rating
+            return $wpdb->update(
+                $ratings_table,
+                $rating_data,
+                array(
+                    'submission_id' => $data['submission_id'],
+                    'reviewer_user_id' => $data['reviewer_user_id']
+                ),
+                array('%d', '%d', '%d', '%d', '%d', '%d', '%s', '%.2f', '%s'),
+                array('%d', '%d')
+            );
+        } else {
+            // Insert new rating
+            $rating_data['rating_date'] = current_time('mysql');
+            return $wpdb->insert(
+                $ratings_table,
+                $rating_data,
+                array('%d', '%d', '%d', '%d', '%d', '%d', '%s', '%.2f', '%s', '%s')
+            );
+        }
+    }
+    
+    /**
+     * Get reviewer rating for a specific submission and reviewer
+     */
+    public static function get_reviewer_rating($reviewer_user_id, $submission_id) {
+        global $wpdb;
+        
+        $ratings_table = $wpdb->prefix . 'hkota_reviewer_ratings';
+        
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $ratings_table WHERE submission_id = %d AND reviewer_user_id = %d",
+            $submission_id,
+            $reviewer_user_id
+        ));
+    }
+    
+    /**
+     * Get all ratings for a specific submission
+     */
+    public static function get_submission_ratings($submission_id) {
+        global $wpdb;
+        
+        $ratings_table = $wpdb->prefix . 'hkota_reviewer_ratings';
+        
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT r.*, 
+                    u.display_name as reviewer_name,
+                    u.user_email as reviewer_email,
+                    um_first.meta_value as reviewer_first_name,
+                    um_last.meta_value as reviewer_last_name
+             FROM $ratings_table r 
+             LEFT JOIN {$wpdb->users} u ON r.reviewer_user_id = u.ID 
+             LEFT JOIN {$wpdb->usermeta} um_first ON u.ID = um_first.user_id AND um_first.meta_key = 'first_name'
+             LEFT JOIN {$wpdb->usermeta} um_last ON u.ID = um_last.user_id AND um_last.meta_key = 'last_name'
+             WHERE r.submission_id = %d 
+             ORDER BY r.rating_date DESC",
+            $submission_id
+        ));
+    }
+    
+    /**
+     * Get all ratings by a specific reviewer
+     */
+    public static function get_reviewer_ratings($reviewer_user_id) {
+        global $wpdb;
+        
+        $ratings_table = $wpdb->prefix . 'hkota_reviewer_ratings';
+        $submissions_table = $wpdb->prefix . 'hkota_abstract_submissions';
+        
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT r.*, s.abstract_title, s.submission_number 
+             FROM $ratings_table r 
+             LEFT JOIN $submissions_table s ON r.submission_id = s.id 
+             WHERE r.reviewer_user_id = %d 
+             ORDER BY r.rating_date DESC",
+            $reviewer_user_id
+        ));
+    }
+    
+    /**
+     * Get average rating for a submission
+     */
+    public static function get_submission_average_rating($submission_id) {
+        global $wpdb;
+        
+        $ratings_table = $wpdb->prefix . 'hkota_reviewer_ratings';
+        
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT 
+                COUNT(*) as total_ratings,
+                AVG(total_score) as average_score,
+                AVG(innovation_rating) as avg_innovation,
+                AVG(scientific_merit_rating) as avg_scientific_merit,
+                AVG(knowledge_contribution_rating) as avg_knowledge_contribution,
+                AVG(clinical_application_rating) as avg_clinical_application
+             FROM $ratings_table 
+             WHERE submission_id = %d",
+            $submission_id
+        ));
+    }
+    
+    /**
+     * Delete a reviewer rating
+     */
+    public static function delete_reviewer_rating($submission_id, $reviewer_user_id) {
+        global $wpdb;
+        
+        $ratings_table = $wpdb->prefix . 'hkota_reviewer_ratings';
+        
+        return $wpdb->delete(
+            $ratings_table,
+            array(
+                'submission_id' => $submission_id,
+                'reviewer_user_id' => $reviewer_user_id
+            ),
+            array('%d', '%d')
+        );
     }
 }
