@@ -260,31 +260,198 @@ jQuery(document).ready(function($) {
         modal.show();
     }
     
-    // Table functionality (simplified versions of admin functions)
+    // Table functionality
     function initTableSorting() {
         $('.sortable').on('click', function() {
-            var column = $(this).data('column');
-            var currentDirection = $(this).hasClass('sorted-asc') ? 'desc' : 'asc';
+            var $header = $(this);
+            var column = $header.data('column');
+            var $table = $('#submissions-table');
+            var $tbody = $table.find('tbody');
+            var rows = $tbody.find('tr').toArray();
             
-            // Update indicators
+            // Determine sort direction
+            var direction = 'asc';
+            if ($header.hasClass('sorted-asc')) {
+                direction = 'desc';
+            }
+            
+            // Clear all sort indicators
             $('.sorting-indicator').removeClass('sorted-asc sorted-desc');
-            $(this).find('.sorting-indicator').addClass('sorted-' + currentDirection);
             
-            // TODO: Implement actual sorting
-            console.log('Sort by', column, currentDirection);
+            // Set current sort indicator
+            $header.find('.sorting-indicator').addClass('sorted-' + direction);
+            
+            // Sort rows
+            rows.sort(function(a, b) {
+                var aVal = getCellValue(a, column);
+                var bVal = getCellValue(b, column);
+                
+                // Handle dates
+                if (column === 'submission_date') {
+                    aVal = new Date(aVal).getTime();
+                    bVal = new Date(bVal).getTime();
+                }
+                
+                // Compare values
+                if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            // Rebuild table
+            $tbody.empty().append(rows);
         });
     }
     
+    function getCellValue(row, column) {
+        var $row = $(row);
+        switch(column) {
+            case 'abstract_title':
+                return $row.find('td:nth-child(1) strong').text().toLowerCase();
+            case 'author_name':
+                return $row.find('td:nth-child(2)').text().toLowerCase();
+            case 'organization':
+                return $row.find('td:nth-child(3)').text().toLowerCase();
+            case 'theme':
+                return $row.find('td:nth-child(4)').text().toLowerCase();
+            case 'presentation_preference':
+                return $row.find('td:nth-child(5)').text().toLowerCase();
+            case 'submission_date':
+                return $row.find('td:nth-child(6)').text();
+            case 'status':
+                return $row.find('td:nth-child(7)').text().toLowerCase();
+            default:
+                return '';
+        }
+    }
+    
     function initTableFiltering() {
-        $('#apply-filters, #clear-filters').on('click', function() {
-            // TODO: Implement filtering
-            console.log('Apply/clear filters');
+        // Apply filters button
+        $('#apply-filters').on('click', function() {
+            applyFilters();
         });
         
-        $('#submission-search-input').on('input', function() {
-            // TODO: Implement real-time search
-            console.log('Search:', $(this).val());
+        // Clear filters button
+        $('#clear-filters').on('click', function() {
+            clearFilters();
         });
+        
+        // Real-time search
+        $('#submission-search-input').on('input', function() {
+            var searchTerm = $(this).val().trim();
+            if (searchTerm.length === 0 || searchTerm.length >= 2) {
+                applyFilters();
+            }
+        });
+        
+        // Apply filters on Enter key
+        $('#submission-search-input').on('keypress', function(e) {
+            if (e.which === 13) {
+                applyFilters();
+            }
+        });
+    }
+    
+    function applyFilters() {
+        var presentationFilter = $('#presentation-filter').val().toLowerCase();
+        var statusFilter = $('#status-filter').val().toLowerCase();
+        var themeFilter = $('#theme-filter').val().toLowerCase();
+        var searchTerm = $('#submission-search-input').val().toLowerCase().trim();
+        
+        var visibleRows = 0;
+        
+        $('#submissions-table tbody tr').each(function() {
+            var $row = $(this);
+            var show = true;
+            
+            // Skip if this is the "no submissions" row
+            if ($row.find('.no-submissions').length > 0) {
+                return;
+            }
+            
+            // Get row data
+            var presentation = $row.find('td:nth-child(5)').text().toLowerCase();
+            var status = $row.find('td:nth-child(7)').text().toLowerCase();
+            var theme = $row.find('td:nth-child(4)').text().toLowerCase();
+            
+            // Presentation filter
+            if (presentationFilter && presentation.indexOf(presentationFilter) === -1) {
+                show = false;
+            }
+            
+            // Status filter
+            if (statusFilter) {
+                if (statusFilter === 'pending' && status.indexOf('pending') === -1) {
+                    show = false;
+                } else if (statusFilter === 'reviewed' && status.indexOf('awaiting') === -1 && status.indexOf('completed') === -1) {
+                    show = false;
+                } else if (statusFilter === 'accepted' && status.indexOf('awaiting') === -1 && status.indexOf('completed') === -1) {
+                    show = false;
+                } else if (statusFilter === 'rejected' && status.indexOf('rejected') === -1) {
+                    show = false;
+                }
+            }
+            
+            // Theme filter
+            if (themeFilter && theme.indexOf(themeFilter) === -1) {
+                show = false;
+            }
+            
+            // Search filter
+            if (searchTerm) {
+                var searchableText = [
+                    $row.find('td:nth-child(1)').text(), // title
+                    $row.find('td:nth-child(2)').text(), // author
+                    $row.find('td:nth-child(3)').text()  // organization
+                ].join(' ').toLowerCase();
+                
+                if (searchableText.indexOf(searchTerm) === -1) {
+                    show = false;
+                }
+            }
+            
+            if (show) {
+                $row.show();
+                visibleRows++;
+            } else {
+                $row.hide();
+            }
+        });
+        
+        // Update count
+        updateRowCount(visibleRows);
+    }
+    
+    function clearFilters() {
+        $('#presentation-filter').val('');
+        $('#status-filter').val('');
+        $('#theme-filter').val('');
+        $('#submission-search-input').val('');
+        
+        // Show all rows
+        $('#submissions-table tbody tr').show();
+        
+        // Update count
+        var totalRows = $('#submissions-table tbody tr').length;
+        // Subtract 1 if there's a "no submissions" row
+        if ($('#submissions-table tbody tr .no-submissions').length > 0) {
+            totalRows = 0;
+        }
+        updateRowCount(totalRows);
+    }
+    
+    function updateRowCount(count) {
+        var totalRows = $('#submissions-table tbody tr').length;
+        // Subtract 1 if there's a "no submissions" row
+        if ($('#submissions-table tbody tr .no-submissions').length > 0) {
+            totalRows = 0;
+        }
+        
+        var countText = count + ' items';
+        if (count !== totalRows && totalRows > 0) {
+            countText += ' (filtered from ' + totalRows + ' total)';
+        }
+        $('.displaying-num').text(countText);
     }
     
     function handleMultipleSubmissions() {

@@ -229,7 +229,8 @@ jQuery(document).ready(function($) {
         
         var button = $(this);
         var submissionId = button.data('id');
-        var presentationType = button.data('presentation');
+        var presentationType = button.data('presentation'); // Get presentation type from button data
+        console.log('Presentation Type:', presentationType);
         var row = button.closest('tr');
         var acceptType = presentationType === 'Oral Presentation' ? 'Oral' : 'E-Poster';
         

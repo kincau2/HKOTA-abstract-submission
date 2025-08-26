@@ -431,6 +431,44 @@ $current_user = wp_get_current_user();
 .filter-actions .button {
     padding: 8px 16px;
     font-size: 14px;
+    border-radius: 3px;
+    border: 1px solid #0073aa;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* WordPress default button styling */
+.filter-actions .button-primary,
+.button-primary {
+    background: #0073aa;
+    border-color: #0073aa;
+    color: #fff;
+    text-decoration: none;
+    text-shadow: 0 -1px 1px #006799, 1px 0 1px #006799, 0 1px 1px #006799, -1px 0 1px #006799;
+    box-shadow: 0 1px 0 #006799;
+}
+
+.filter-actions .button-primary:hover,
+.button-primary:hover {
+    background: #005177;
+    border-color: #005177;
+    color: #fff;
+}
+
+.filter-actions .button:not(.button-primary),
+.button:not(.button-primary) {
+    background: #f6f7f7;
+    border-color: #ddd;
+    color: #555;
+    text-shadow: 0 1px 0 #fff;
+    box-shadow: 0 1px 0 #ccc;
+}
+
+.filter-actions .button:not(.button-primary):hover,
+.button:not(.button-primary):hover {
+    background: #fafafa;
+    border-color: #999;
+    color: #23282d;
 }
 
 .hkota-submissions-container {
@@ -470,6 +508,41 @@ $current_user = wp_get_current_user();
     margin: 2px;
     padding: 4px 8px;
     font-size: 12px;
+    border-radius: 3px;
+    border: 1px solid #0073aa;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.actions-cell .button-primary {
+    background: #0073aa;
+    border-color: #0073aa;
+    color: #fff;
+    text-shadow: 0 -1px 1px #006799, 1px 0 1px #006799, 0 1px 1px #006799, -1px 0 1px #006799;
+    box-shadow: 0 1px 0 #006799;
+}
+
+.actions-cell .button-primary:hover {
+    background: #005177;
+    border-color: #005177;
+    color: #fff;
+}
+
+.actions-cell .button:not(.button-primary) {
+    background: #f6f7f7;
+    border-color: #ddd;
+    color: #555;
+    text-shadow: 0 1px 0 #fff;
+    box-shadow: 0 1px 0 #ccc;
+}
+
+.actions-cell .button:not(.button-primary):hover {
+    background: #fafafa;
+    border-color: #999;
+    color: #23282d;
 }
 
 .rating-cell {
@@ -832,38 +905,45 @@ $current_user = wp_get_current_user();
 }
 
 .rating-actions .button {
-    padding: 12px 30px;
-    font-size: 15px;
-    font-weight: 600;
-    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 400;
+    border-radius: 3px;
     cursor: pointer;
     transition: all 0.2s ease;
-    border: none;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    border: 1px solid #0073aa;
+    text-decoration: none;
+    display: inline-block;
+    vertical-align: top;
+    line-height: 1.4;
 }
 
 .rating-actions .button-primary {
-    background: linear-gradient(135deg, #0073aa 0%, #005177 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(0, 115, 170, 0.3);
+    background: #0073aa;
+    border-color: #0073aa;
+    color: #fff;
+    text-shadow: 0 -1px 1px #006799, 1px 0 1px #006799, 0 1px 1px #006799, -1px 0 1px #006799;
+    box-shadow: 0 1px 0 #006799;
 }
 
 .rating-actions .button-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 115, 170, 0.4);
+    background: #005177;
+    border-color: #005177;
+    color: #fff;
 }
 
 .rating-actions .cancel-rating {
-    background: #f8f9fa;
-    color: #333;
-    border: 2px solid #dee2e6;
+    background: #f6f7f7;
+    border-color: #ddd;
+    color: #555;
+    text-shadow: 0 1px 0 #fff;
+    box-shadow: 0 1px 0 #ccc;
 }
 
 .rating-actions .cancel-rating:hover {
-    background: #e9ecef;
-    border-color: #adb5bd;
-    transform: translateY(-1px);
+    background: #fafafa;
+    border-color: #999;
+    color: #23282d;
 }
 
 /* Responsive Design */

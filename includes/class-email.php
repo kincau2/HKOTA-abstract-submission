@@ -4,7 +4,7 @@ class HKOTA_Email {
     
     public static function send_submission_confirmation($data) {
         $to = $data['contact_email'];
-        $subject = 'Abstract Submission Confirmation - HKOTA';
+        $subject = 'Hong Kong Occupational Therapy Conference 2025 - Abstract Submission Confirmation';
         
         $message = HKOTA_Template_Helper::get_email_template('submission-confirmation', array('data' => $data));
         
@@ -18,9 +18,30 @@ class HKOTA_Email {
     
     public static function send_status_notification($submission, $status) {
         $to = $submission->contact_email;
-        $subject = 'Abstract Submission Update - HKOTA';
         
-        $message = HKOTA_Template_Helper::get_email_template('status-notification', array(
+        // Determine email type based on status and presentation type
+        if ($status === 'awaiting_upload') {
+            if ($submission->presentation_preference === 'Oral Presentation') {
+                $subject = 'Hong Kong Occupational Therapy Conference 2025 – Acceptance of Oral Presentation';
+                $template = 'accept-oral';
+            } elseif ($submission->presentation_preference === 'E-poster presentation') {
+                $subject = 'Hong Kong Occupational Therapy Conference 2025 – Acceptance of Poster Presentation';
+                $template = 'accept-poster';
+            } else {
+                // Fallback for general acceptance
+                $subject = 'Hong Kong Occupational Therapy Conference 2025 - Submission Accepted';
+                $template = 'status-notification';
+            }
+        } elseif ($status === 'rejected') {
+            $subject = 'Hong Kong Occupational Therapy Conference 2025 - Abstract Submission Status';
+            $template = 'reject';
+        } else {
+            // Fallback for other statuses
+            $subject = 'Hong Kong Occupational Therapy Conference 2025 - Submission Update';
+            $template = 'status-notification';
+        }
+        
+        $message = HKOTA_Template_Helper::get_email_template($template, array(
             'submission' => $submission,
             'status' => $status
         ));
