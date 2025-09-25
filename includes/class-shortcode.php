@@ -151,6 +151,8 @@ class HKOTA_Shortcode {
             wp_send_json_error('You must be logged in to submit an abstract.');
         }
         
+        $current_user = wp_get_current_user();
+        
         // Check deadline for new submissions only
         $submission_id = isset($_POST['submission_id']) ? intval($_POST['submission_id']) : 0;
         
@@ -158,7 +160,14 @@ class HKOTA_Shortcode {
             wp_send_json_error('The submission deadline has passed. You can no longer submit new abstracts.');
         }
         
-        $current_user = wp_get_current_user();
+        // Server-side duplicate submission protection
+        if (empty($submission_id)) {
+            // For new submissions, check if user has submitted in the last 10 seconds
+            $recent_submission = $this->check_recent_submission($current_user->ID, 10);
+            if ($recent_submission) {
+                wp_send_json_error('Please wait before submitting again. If this was an error, please refresh the page.');
+            }
+        }
         
         // Get submission ID if editing existing submission
         
@@ -217,12 +226,16 @@ class HKOTA_Shortcode {
             }
         }
         
-        // Validate keywords (should be exactly 5)
+        // Validate keywords (should be at least 3)
         $keywords_array = array_map('trim', explode(',', $data['keywords']));
         $keywords_array = array_filter($keywords_array); // Remove empty values
         
-        if (count($keywords_array) != 5) {
-            wp_send_json_error('Please provide exactly 5 keywords. You provided ' . count($keywords_array) . '.');
+        if (count($keywords_array) < 3) {
+            wp_send_json_error('Please provide at least 3 keywords. You provided ' . count($keywords_array) . '.');
+        }
+        
+        if (count($keywords_array) > 5) {
+            wp_send_json_error('Please provide no more than 5 keywords. You provided ' . count($keywords_array) . '.');
         }
         
         // Check for duplicate keywords
@@ -492,28 +505,15 @@ class HKOTA_Shortcode {
             $errors[] = "Authors field exceeds 8 authors limit (current: {$author_count} authors)";
         }
         
-        // Validate background (500 words max)
+        // Validate combined word count for Background, Methods, Results, and Conclusion (500 words total)
         $background_words = $this->count_words($data['background']);
-        if ($background_words > 500) {
-            $errors[] = "Background section exceeds 500 words limit (current: {$background_words} words)";
-        }
-        
-        // Validate methods (500 words max)
         $methods_words = $this->count_words($data['methods']);
-        if ($methods_words > 500) {
-            $errors[] = "Methods section exceeds 500 words limit (current: {$methods_words} words)";
-        }
-        
-        // Validate results (500 words max)
         $results_words = $this->count_words($data['results']);
-        if ($results_words > 500) {
-            $errors[] = "Results and Findings section exceeds 500 words limit (current: {$results_words} words)";
-        }
-        
-        // Validate conclusion (500 words max)
         $conclusion_words = $this->count_words($data['conclusion']);
-        if ($conclusion_words > 500) {
-            $errors[] = "Conclusion section exceeds 500 words limit (current: {$conclusion_words} words)";
+        
+        $total_abstract_words = $background_words + $methods_words + $results_words + $conclusion_words;
+        if ($total_abstract_words > 500) {
+            $errors[] = "Combined abstract sections (Background, Methods, Results, Conclusion) exceed 500 words limit (current: {$total_abstract_words} words - Background: {$background_words}, Methods: {$methods_words}, Results: {$results_words}, Conclusion: {$conclusion_words})";
         }
         
         if (!empty($errors)) {
@@ -648,6 +648,26 @@ class HKOTA_Shortcode {
         } else {
             wp_send_json_error('No rating found');
         }
+    }
+    
+    /**
+     * Check for recent submissions by user (duplicate submission protection)
+     */
+    private function check_recent_submission($user_id, $seconds = 30) {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'hkota_abstract_submissions';
+        $cutoff_time = date('Y-m-d H:i:s', time() - $seconds + 28800 ); // Adjust for timezone if needed
+        
+        $recent_count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_name 
+             WHERE user_id = %d 
+             AND submission_date >= %s",
+            $user_id,
+            $cutoff_time
+        ));
+
+        return $recent_count > 0;
     }
     
 }

@@ -183,7 +183,7 @@ jQuery(document).ready(function($) {
             if (rating && weight) {
                 var score = rating * weight;
                 var criterionId = $(this).attr('name').replace('_rating', '').replace('_', '-');
-                $('#' + criterionId + '-score').text(score.toFixed(1));
+                $('#' + criterionId + '-score').text(score.toFixed(0));
                 totalScore += score;
             } else {
                 allRated = false;
@@ -194,10 +194,10 @@ jQuery(document).ready(function($) {
         
         if (allRated) {
             var percentage = (totalScore / (totalWeight * 5)) * 100;
-            $('#total-score').html('<strong>' + percentage.toFixed(1) + '%</strong>');
-            $('#total-rating').text(totalScore.toFixed(1));
+            $('#total-score').html('<strong>' + percentage.toFixed(0) + '/100</strong>');
+            $('#total-rating').text(totalScore.toFixed(0));
         } else {
-            $('#total-score').html('<strong>0%</strong>');
+            $('#total-score').html('<strong>0</strong>');
             $('#total-rating').text('-');
         }
     }
@@ -264,22 +264,25 @@ jQuery(document).ready(function($) {
     function initTableSorting() {
         $('.sortable').on('click', function() {
             var $header = $(this);
+            var $indicator = $header.find('.sorting-indicator');
             var column = $header.data('column');
             var $table = $('#submissions-table');
             var $tbody = $table.find('tbody');
             var rows = $tbody.find('tr').toArray();
             
-            // Determine sort direction
+            // Determine sort direction - check the indicator element for current sort state
             var direction = 'asc';
-            if ($header.hasClass('sorted-asc')) {
+            if ($indicator.hasClass('sorted-asc')) {
                 direction = 'desc';
+            } else if ($indicator.hasClass('sorted-desc')) {
+                direction = 'asc';
             }
             
             // Clear all sort indicators
             $('.sorting-indicator').removeClass('sorted-asc sorted-desc');
             
             // Set current sort indicator
-            $header.find('.sorting-indicator').addClass('sorted-' + direction);
+            $indicator.addClass('sorted-' + direction);
             
             // Sort rows
             rows.sort(function(a, b) {
@@ -680,10 +683,12 @@ jQuery(document).ready(function($) {
     function initializeForm() {
         // Only initialize form functionality if we're on a page with the submission form
         if ($('#hkota-abstract-form').length > 0) {
+            // Clear any existing submission state for fresh start
+            $('#hkota-abstract-form').removeData('submitting');
+            
             // Re-initialize form functionality for loaded form
             updateKeywordsField();
             initializeWordCounting();
-            initializeAuthorCounting();
             initializeKeywordValidation();
             initializeFormSubmission();
         }
@@ -723,23 +728,6 @@ jQuery(document).ready(function($) {
         $(document).off('input blur', '[name^="keyword_"]').on('input blur', '[name^="keyword_"]', function() {
             updateKeywordsField();
             validateKeywords();
-            
-            // Auto-focus next field when current field is filled
-            var currentNum = parseInt($(this).attr('name').split('_')[1]);
-            var currentValue = $(this).val();
-            if (currentValue && currentValue.trim && currentValue.trim()) {
-                currentValue = currentValue.trim();
-                
-                if (currentValue && currentNum < 5) {
-                    var nextField = $('#keyword_' + (currentNum + 1));
-                    var nextValue = nextField.val();
-                    if (!nextValue || (nextValue.trim && !nextValue.trim())) {
-                        setTimeout(function() {
-                            nextField.focus();
-                        }, 100);
-                    }
-                }
-            }
         });
         
         // Handle Enter key to move to next field
@@ -749,11 +737,6 @@ jQuery(document).ready(function($) {
                 var currentNum = parseInt($(this).attr('name').split('_')[1]);
                 if (currentNum < 5) {
                     $('#keyword_' + (currentNum + 1)).focus();
-                } else {
-                    // On last field, submit form if valid
-                    if ($('.hkota-submit-btn').prop('disabled') === false) {
-                        $('#hkota-abstract-form').submit();
-                    }
                 }
             }
         });
@@ -767,6 +750,7 @@ jQuery(document).ready(function($) {
         }
         
         var filledKeywords = 0;
+        var requiredKeywords = 0; // Count filled required keywords (1-3)
         var allValid = true;
         
         for (var i = 1; i <= 5; i++) {
@@ -777,6 +761,11 @@ jQuery(document).ready(function($) {
             if (value && value.trim && value.trim()) {
                 value = value.trim();
                 filledKeywords++;
+                
+                // Count required keywords (1-3)
+                if (i <= 3) {
+                    requiredKeywords++;
+                }
                 
                 // Check for duplicates
                 var isDuplicate = false;
@@ -808,15 +797,15 @@ jQuery(document).ready(function($) {
         // Remove existing validation message
         $('.keywords-validation-message').remove();
         
-        if (filledKeywords === 5 && allValid) {
+        if (requiredKeywords === 3 && allValid) {
             $submitBtn.removeClass('keywords-disabled');
         } else {
             $submitBtn.addClass('keywords-disabled');
             
             // Show validation message
             var message = '';
-            if (filledKeywords < 5) {
-                message = 'Please enter all 5 keywords (' + filledKeywords + '/5 completed).';
+            if (requiredKeywords < 3) {
+                message = 'Please enter at least the first 3 keywords (' + requiredKeywords + '/3 completed).';
             } else if (!allValid) {
                 message = 'Please ensure all keywords are unique.';
             }
@@ -824,84 +813,6 @@ jQuery(document).ready(function($) {
             $('.keywords-container').after('<div class="keywords-validation-message" style="color: #dc3232; font-size: 12px; margin-top: 5px;">' + message + '</div>');
         }
     }
-    
-    // Handle form submission
-    $('#hkota-abstract-form').on('submit', function(e) {
-        e.preventDefault();
-        
-        // Update keywords field before submission
-        updateKeywordsField();
-        
-        var form = $(this);
-        var submitBtn = form.find('.hkota-submit-btn');
-        var messagesDiv = $('#hkota-form-messages');
-        
-        // Check if keywords validation is passing
-        if (submitBtn.hasClass('keywords-disabled')) {
-            messagesDiv.html('<div class="hkota-message error">Please complete all 5 keywords before submitting.</div>');
-            return false;
-        }
-        
-        // Validate keywords count
-        var keywordCount = $('#keywords').val().split(',').filter(function(k) { return k.trim(); }).length;
-        if (keywordCount !== 5) {
-            messagesDiv.html('<div class="hkota-message error">Please provide exactly 5 keywords.</div>');
-            return false;
-        }
-        
-        // Disable submit button and show loading state
-        submitBtn.prop('disabled', true).text('Submitting...');
-        form.addClass('hkota-loading');
-        messagesDiv.empty();
-        
-        // Prepare form data
-        var formData = {
-            action: 'submit_abstract',
-            hkota_nonce: form.find('input[name="hkota_nonce"]').val(),
-            title: form.find('select[name="title"]').val(),
-            surname: form.find('input[name="surname"]').val(),
-            given_name: form.find('input[name="given_name"]').val(),
-            contact_number: form.find('input[name="contact_number"]').val(),
-            contact_email: form.find('input[name="contact_email"]').val(),
-            organization: form.find('input[name="organization"]').val(),
-            theme: form.find('select[name="theme"]').val(),
-            presentation_preference: form.find('select[name="presentation_preference"]').val(),
-            abstract_title: form.find('input[name="abstract_title"]').val(),
-            authors: form.find('textarea[name="authors"]').val(),
-            affiliations: form.find('textarea[name="affiliations"]').val(),
-            background: form.find('textarea[name="background"]').val(),
-            methods: form.find('textarea[name="methods"]').val(),
-            results: form.find('textarea[name="results"]').val(),
-            conclusion: form.find('textarea[name="conclusion"]').val(),
-            keywords: form.find('input[name="keywords"]').val()
-        };
-        
-        // Submit via AJAX
-        $.post(hkota_ajax.ajax_url, formData)
-            .done(function(response) {
-                if (response.success) {
-                    messagesDiv.html('<div class="hkota-message success">' + response.data + '</div>');
-                    submitBtn.text('Update Submission');
-                } else {
-                    messagesDiv.html('<div class="hkota-message error">' + response.data + '</div>');
-                }
-            })
-            .fail(function() {
-                messagesDiv.html('<div class="hkota-message error">There was an error submitting your form. Please try again.</div>');
-            })
-            .always(function() {
-                // Re-enable submit button and remove loading state
-                submitBtn.prop('disabled', false);
-                form.removeClass('hkota-loading');
-                
-                // Scroll to messages
-                if (messagesDiv.children().length > 0) {
-                    $('html, body').animate({
-                        scrollTop: messagesDiv.offset().top - 20
-                    }, 500);
-                }
-            });
-    });
     
     // Form validation
     function validateForm() {
@@ -934,12 +845,12 @@ jQuery(document).ready(function($) {
     // Keywords validation
     $('#keywords').on('blur', function() {
         var keywords = $(this).val();
-        var keywordsArray = keywords.split(',').map(function(k) { return k.trim(); });
+        var keywordsArray = keywords.split(',').map(function(k) { return k.trim(); }).filter(function(k) { return k; });
         
-        if (keywords && keywordsArray.length !== 5) {
+        if (keywords && keywordsArray.length < 3) {
             $(this).addClass('error');
             $(this).next('.error-message').remove();
-            $(this).after('<small class="error-message" style="color: #d63384;">Please enter exactly 5 keywords separated by commas.</small>');
+            $(this).after('<small class="error-message" style="color: #d63384;">Please enter at least 3 keywords separated by commas.</small>');
         } else {
             $(this).removeClass('error');
             $(this).next('.error-message').remove();
@@ -1104,58 +1015,107 @@ jQuery(document).ready(function($) {
     }
     
     function validateWordLimits() {
-        var isValid = true;
+        var errors = [];
         
         // Validate title (20 words)
-        if (!updateWordCount('abstract_title', 20)) {
-            isValid = false;
+        var titleWords = countWords($('#abstract_title').val());
+        if (titleWords > 20) {
+            errors.push("Abstract title exceeds 20 words limit (current: " + titleWords + " words)");
         }
         
         // Validate authors (8 authors)
-        if (!updateWordCount('authors', 8, true)) {
-            isValid = false;
+        var authorCount = countAuthors($('#authors').val());
+        if (authorCount > 8) {
+            errors.push("Authors field exceeds 8 authors limit (current: " + authorCount + " authors)");
         }
         
-        // Validate background (500 words)
-        if (!updateWordCount('background', 500)) {
-            isValid = false;
+        // Validate combined abstract sections (500 words total)
+        var backgroundWords = countWords($('#background').val());
+        var methodsWords = countWords($('#methods').val());
+        var resultsWords = countWords($('#results').val());
+        var conclusionWords = countWords($('#conclusion').val());
+        
+        var totalWords = backgroundWords + methodsWords + resultsWords + conclusionWords;
+        if (totalWords > 500) {
+            errors.push("Combined abstract sections (Background, Methods, Results, Conclusion) exceed 500 words limit (current: " + totalWords + " words - Background: " + backgroundWords + ", Methods: " + methodsWords + ", Results: " + resultsWords + ", Conclusion: " + conclusionWords + ")");
         }
         
-        // Validate methods (500 words)
-        if (!updateWordCount('methods', 500)) {
-            isValid = false;
+        // Update the combined word count display
+        var $combinedCountDiv = $('#combined_abstract_count');
+        if ($combinedCountDiv.length) {
+            $combinedCountDiv.text(totalWords);
+            
+            var $combinedContainer = $combinedCountDiv.closest('.combined-word-count');
+            $combinedContainer.removeClass('over-limit near-limit');
+            
+            if (totalWords > 500) {
+                $combinedContainer.addClass('over-limit');
+            } else if (totalWords > 450) {
+                $combinedContainer.addClass('near-limit');
+            }
         }
         
-        // Validate results (500 words)
-        if (!updateWordCount('results', 500)) {
-            isValid = false;
+        if (errors.length > 0) {
+            return errors.join(' ');
         }
         
-        // Validate conclusion (500 words)
-        if (!updateWordCount('conclusion', 500)) {
-            isValid = false;
-        }
+        return true;
+    }
+    
+    // Helper function to update combined word count display (for real-time updates)
+    function updateCombinedWordCountDisplay() {
+        var backgroundWords = countWords($('#background').val());
+        var methodsWords = countWords($('#methods').val());
+        var resultsWords = countWords($('#results').val());
+        var conclusionWords = countWords($('#conclusion').val());
         
-        return isValid;
+        var totalWords = backgroundWords + methodsWords + resultsWords + conclusionWords;
+        var limit = 500;
+        
+        // Update the combined word count display
+        var $combinedCountDiv = $('#combined_abstract_count');
+        if ($combinedCountDiv.length) {
+            $combinedCountDiv.text(totalWords);
+            
+            var $combinedContainer = $combinedCountDiv.closest('.combined-word-count');
+            $combinedContainer.removeClass('over-limit near-limit');
+            
+            if (totalWords > limit) {
+                $combinedContainer.addClass('over-limit');
+            } else if (totalWords > limit * 0.9) {
+                $combinedContainer.addClass('near-limit');
+            }
+        }
     }
     
     // Initialize word counting for all fields
     function initializeWordCounting() {
-        // Fields with word limits
-        var wordLimitFields = ['abstract_title', 'background', 'methods', 'results', 'conclusion'];
+        // Title field with word limit
+        var titleField = $('#abstract_title');
+        if (titleField.length) {
+            var titleLimit = parseInt(titleField.data('word-limit'));
+            updateWordCount('abstract_title', titleLimit);
+            
+            titleField.off('input keyup paste').on('input keyup paste', function() {
+                updateWordCount('abstract_title', titleLimit);
+            });
+        }
         
-        wordLimitFields.forEach(function(fieldId) {
+        // Abstract sections with combined word limit validation
+        var abstractFields = ['background', 'methods', 'results', 'conclusion'];
+        abstractFields.forEach(function(fieldId) {
             var field = $('#' + fieldId);
             if (field.length) {
-                var limit = parseInt(field.data('word-limit'));
-                updateWordCount(fieldId, limit);
-                
-                // Add real-time validation
+                // Add real-time validation for combined word count
                 field.off('input keyup paste').on('input keyup paste', function() {
-                    updateWordCount(fieldId, limit);
+                    // Update combined word count display (just the display part)
+                    updateCombinedWordCountDisplay();
                 });
             }
         });
+        
+        // Initialize combined word count display
+        updateCombinedWordCountDisplay();
         
         // Authors field with author limit
         var authorsField = $('#authors');
@@ -1169,47 +1129,117 @@ jQuery(document).ready(function($) {
         }
     }
     
-    function initializeAuthorCounting() {
-        // This is handled in initializeWordCounting
-    }
-    
     function initializeFormSubmission() {
-        // Add validation to form submission
-        $(document).off('submit', '#hkota-abstract-form').on('submit', '#hkota-abstract-form', function(e) {
+        // Remove ALL existing submit handlers with namespace for clean slate
+        $(document).off('submit.hkota', '#hkota-abstract-form');
+        
+        // Add comprehensive form submission handler with namespace
+        $(document).on('submit.hkota', '#hkota-abstract-form', function(e) {
             e.preventDefault();
             
-            if (!validateWordLimits()) {
-                showFormMessage('Please check the word limits for all fields before submitting.', 'error');
+            var form = $(this);
+            
+            // Prevent double submission
+            if (form.data('submitting')) {
                 return false;
             }
             
-            // Submit form via AJAX
-            var formData = $(this).serialize();
-            var submitBtn = $('.hkota-submit-btn');
-            var originalText = submitBtn.text();
+            // Update keywords field before submission
+            updateKeywordsField();
             
+            var submitBtn = form.find('.hkota-submit-btn');
+            var messagesDiv = $('#hkota-form-messages');
+            
+            // Check if keywords validation is passing
+            if (submitBtn.hasClass('keywords-disabled')) {
+                showFormMessage('Please complete at least the first 3 keywords before submitting.', 'error');
+                return false;
+            }
+            
+            // Validate keywords count (at least 3)
+            var keywordCount = $('#keywords').val().split(',').filter(function(k) { return k.trim(); }).length;
+            if (keywordCount < 3) {
+                showFormMessage('Please provide at least 3 keywords.', 'error');
+                return false;
+            }
+            
+            // Validate word limits
+            var wordLimitValidation = validateWordLimits();
+            if (wordLimitValidation !== true) {
+                showFormMessage(wordLimitValidation, 'error');
+                return false;
+            }
+            
+            // Mark form as submitting and disable button immediately
+            form.data('submitting', true);
+            var originalText = submitBtn.text();
+            console.log('Original button text:', originalText);
             submitBtn.prop('disabled', true).addClass('loading').text('Submitting...');
+            
+            // Clear any existing messages
+            messagesDiv.empty();
+            
+            // Show loading overlay
             showLoadingOverlay('Submitting your abstract...');
             
-            $.post(hkota_ajax.ajax_url, formData + '&action=submit_abstract', function(response) {
-                hideLoadingOverlay();
-                
-                if (response.success) {
-                    showFormMessage(response.data, 'success');
-                    // Reload page after successful submission to show updated list
-                    setTimeout(function() {
-                        location.reload();
-                    }, 2000);
-                } else {
-                    showFormMessage(response.data, 'error');
-                }
-            }).fail(function() {
-                hideLoadingOverlay();
-                showFormMessage('Failed to submit. Please try again.', 'error');
-            }).always(function() {
-                submitBtn.prop('disabled', false).removeClass('loading').text(originalText);
-            });
+            // Determine if this is an AJAX-loaded form (for post-success behavior)
+            var isAjaxForm = form.closest('.hkota-abstract-form-container-ajax').length > 0;
+            
+            // Use serialize for reliable form data capture
+            var formData = form.serialize() + '&action=submit_abstract';
+            
+            // Submit via AJAX
+            $.post(hkota_ajax.ajax_url, formData)
+                .done(function(response) {
+                    hideLoadingOverlay();
+                    
+                    if (response.success) {
+                        // Show success message with countdown
+                        showSuccessWithCountdown(response.data);
+                    } else {
+                        showFormMessage(response.data, 'error');
+                    }
+                })
+                .fail(function() {
+                    hideLoadingOverlay();
+                    showFormMessage('Failed to submit. Please try again.', 'error');
+                })
+                .always(function() {
+                    // Reset submission state and re-enable button
+                    form.removeData('submitting');
+                    submitBtn.text('submitted');
+                });
         });
+    }
+    
+    // Show success message with countdown and redirect
+    function showSuccessWithCountdown(message) {
+        var messagesDiv = $('#hkota-form-messages');
+        var countdown = 5;
+        
+        // Initial message with countdown
+        var updateMessage = function() {
+            var countdownHtml = '<div class="hkota-notice hkota-notice-success">' +
+                '<p>' + message + '</p>' +
+                '<p> Redirecting to submissions list in ' + countdown + ' seconds...</p>' +
+                '</div>';
+            messagesDiv.html(countdownHtml);
+            $('html, body').animate({ scrollTop: messagesDiv.offset().top - 100 }, 500);
+        };
+        
+        updateMessage();
+        
+        // Update countdown every second
+        var timer = setInterval(function() {
+            countdown--;
+            if (countdown > 0) {
+                updateMessage();
+            } else {
+                clearInterval(timer);
+                // Redirect to the current page (which will show the submissions list)
+                window.location.href = window.location.pathname;
+            }
+        }, 1000);
     }
     
     function showFormMessage(message, type) {

@@ -27,7 +27,7 @@ $current_user = wp_get_current_user();
                 <select id="presentation-filter">
                     <option value="">All Types</option>
                     <option value="Oral Presentation">Oral Presentation</option>
-                    <option value="E-Poster">E-Poster</option>
+                    <option value="E-poster presentation">E-poster presentation</option>
                 </select>
             </div>
             
@@ -46,11 +46,12 @@ $current_user = wp_get_current_user();
                 <label for="theme-filter">Theme:</label>
                 <select id="theme-filter">
                     <option value="">All Themes</option>
-                    <option value="Mental Health">Mental Health</option>
-                    <option value="Paediatrics">Paediatrics</option>
-                    <option value="Physical Rehabilitation">Physical Rehabilitation</option>
-                    <option value="Community Practice">Community Practice</option>
-                    <option value="Others">Others</option>
+                    <option value="Occupational Therapy in Mental Health Practice">Occupational Therapy in Mental Health Practice</option>
+                    <option value="Occupational Therapy in Community and Private practice">Occupational Therapy in Community and Private practice</option>
+                    <option value="Occupational Therapy in School-based Practice">Occupational Therapy in School-based Practice</option>
+                    <option value="Occupational Therapy in Primary Care Practice">Occupational Therapy in Primary Care Practice</option>
+                    <option value="Occupational Therapy in Hospital Practice">Occupational Therapy in Hospital Practice</option>
+                    <option value="Occupational Therapy with Innovative Approaches or New Occupational Therapy Services">Occupational Therapy with Innovative Approaches or New Occupational Therapy Services</option>
                 </select>
             </div>
             
@@ -214,7 +215,7 @@ $current_user = wp_get_current_user();
                     </div>
                     <div class="rating-info-item">
                         <label>Reviewer:</label>
-                        <span><?php echo esc_html($current_user->display_name); ?></span>
+                        <span><?php echo esc_html($current_user->last_name).', '.esc_html($current_user->first_name); ?></span>
                     </div>
                 </div>
 
@@ -295,9 +296,8 @@ $current_user = wp_get_current_user();
                                 <td class="calculated-score" id="clinical-application-score">-</td>
                             </tr>
                             <tr class="total-row">
-                                <td colspan="3"><strong>Total Scores: (100%)</strong></td>
-                                <td class="total-rating" id="total-rating">-</td>
-                                <td class="total-score" id="total-score"><strong>0%</strong></td>
+                                <td colspan="4"><strong>Total Scores:</strong></td>
+                                <td class="total-score" id="total-score"><strong>0</strong></td>
                             </tr>
                         </tbody>
                     </table>

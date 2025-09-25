@@ -179,47 +179,35 @@ $container_class = $is_ajax ? 'hkota-abstract-form-container-ajax' : 'hkota-abst
         
         <div class="hkota-form-group">
             <label for="background">Background *</label>
-            <textarea id="background" name="background" rows="5" 
-                      data-word-limit="500" 
-                      required><?php echo esc_textarea($existing_submission ? $existing_submission->background : ''); ?></textarea>
-            <div class="word-count-display">
-                <span class="word-count" id="background_count">0</span>/<span class="word-limit">500</span> words
-            </div>
+            <textarea id="background" name="background" rows="5" required><?php echo esc_textarea($existing_submission ? $existing_submission->background : ''); ?></textarea>
         </div>
         
         <div class="hkota-form-group">
             <label for="methods">Methods *</label>
-            <textarea id="methods" name="methods" rows="5" 
-                      data-word-limit="500" 
-                      required><?php echo esc_textarea($existing_submission ? $existing_submission->methods : ''); ?></textarea>
-            <div class="word-count-display">
-                <span class="word-count" id="methods_count">0</span>/<span class="word-limit">500</span> words
-            </div>
+            <textarea id="methods" name="methods" rows="5" required><?php echo esc_textarea($existing_submission ? $existing_submission->methods : ''); ?></textarea>
         </div>
         
         <div class="hkota-form-group">
             <label for="results">Results and Findings *</label>
-            <textarea id="results" name="results" rows="5" 
-                      data-word-limit="500" 
-                      required><?php echo esc_textarea($existing_submission ? $existing_submission->results : ''); ?></textarea>
-            <div class="word-count-display">
-                <span class="word-count" id="results_count">0</span>/<span class="word-limit">500</span> words
-            </div>
+            <textarea id="results" name="results" rows="5" required><?php echo esc_textarea($existing_submission ? $existing_submission->results : ''); ?></textarea>
         </div>
         
         <div class="hkota-form-group">
             <label for="conclusion">Conclusion *</label>
-            <textarea id="conclusion" name="conclusion" rows="5" 
-                      data-word-limit="500" 
-                      required><?php echo esc_textarea($existing_submission ? $existing_submission->conclusion : ''); ?></textarea>
-            <div class="word-count-display">
-                <span class="word-count" id="conclusion_count">0</span>/<span class="word-limit">500</span> words
+            <textarea id="conclusion" name="conclusion" rows="5" required><?php echo esc_textarea($existing_submission ? $existing_submission->conclusion : ''); ?></textarea>
+        </div>
+        
+        <div class="combined-word-count-container">
+            <div class="combined-word-count">
+                <strong>Total word count for abstract sections (Background, Methods, Results, Conclusion):</strong>
+                <span class="word-count" id="combined_abstract_count">0</span>/<span class="word-limit">500</span> words
             </div>
+            <small class="help-text">All four abstract sections combined must not exceed 500 words total.</small>
         </div>
         
         <div class="hkota-form-group">
             <label>Keywords *</label>
-            <small class="keywords-help">Please enter exactly 5 keywords:</small>
+            <small class="keywords-help">Please enter at least 3 keywords (keywords 4 and 5 are optional):</small>
             <?php 
             // Parse existing keywords if available
             $existing_keywords = array('', '', '', '', '');
@@ -233,12 +221,17 @@ $container_class = $is_ajax ? 'hkota-abstract-form-container-ajax' : 'hkota-abst
             <div class="keywords-container">
                 <?php for ($i = 1; $i <= 5; $i++): ?>
                     <div class="keyword-field">
-                        <label for="keyword_<?php echo $i; ?>" class="keyword-label">Keyword <?php echo $i; ?>:</label>
+                        <label for="keyword_<?php echo $i; ?>" class="keyword-label">
+                            Keyword <?php echo $i; ?>:
+                            <?php if ($i > 3): ?>
+                                <span class="optional-label">(optional)</span>
+                            <?php endif; ?>
+                        </label>
                         <input type="text" 
                                id="keyword_<?php echo $i; ?>" 
                                name="keyword_<?php echo $i; ?>" 
                                value="<?php echo esc_attr($existing_keywords[$i-1]); ?>" 
-                               required 
+                               <?php echo $i <= 3 ? 'required' : ''; ?> 
                                maxlength="50"
                                placeholder="Enter keyword <?php echo $i; ?>">
                     </div>

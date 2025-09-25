@@ -83,22 +83,22 @@
         
         <div class="detail-item full-width">
             <label>Background:</label>
-            <div class="text-content"><?php echo nl2br(esc_html($submission->background)); ?></div>
+            <p><?php echo nl2br(esc_html($submission->background)); ?></p>
         </div>
         
         <div class="detail-item full-width">
             <label>Methods:</label>
-            <div class="text-content"><?php echo nl2br(esc_html($submission->methods)); ?></div>
+            <p><?php echo nl2br(esc_html($submission->methods)); ?></p>
         </div>
         
         <div class="detail-item full-width">
             <label>Results and Findings:</label>
-            <div class="text-content"><?php echo nl2br(esc_html($submission->results)); ?></div>
+            <p><?php echo nl2br(esc_html($submission->results)); ?></p>
         </div>
         
         <div class="detail-item full-width">
             <label>Conclusion:</label>
-            <div class="text-content"><?php echo nl2br(esc_html($submission->conclusion)); ?></div>
+            <p><?php echo nl2br(esc_html($submission->conclusion)); ?></p>
         </div>
         
         <div class="detail-item full-width">
@@ -168,6 +168,7 @@
 
 .detail-item.full-width {
     grid-column: 1 / -1;
+    margin-bottom: 25px;
 }
 
 .detail-item label {

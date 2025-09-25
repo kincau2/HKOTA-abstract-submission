@@ -124,7 +124,7 @@ class HKOTA_Admin {
         $submission_id = intval($_POST['submission_id']);
         $status = sanitize_text_field($_POST['status']);
         
-        if (!in_array($status, array('awaiting_upload', 'rejected'))) {
+        if (!in_array($status, array('accepted_oral', 'accepted_poster', 'awaiting_upload', 'rejected'))) {
             wp_send_json_error('Invalid status.');
         }
         

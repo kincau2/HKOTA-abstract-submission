@@ -1,8 +1,8 @@
 /* HKOTA Abstract Submission Frontend Styles */
 
 .hkota-abstract-form-container {
-    max-width: 800px;
-    margin: 0 auto;
+    max-width: 950px;
+    margin: 20px auto;
     padding: 20px;
     background: #fff;
     border: 1px solid #ddd;
@@ -133,6 +133,40 @@
 .hkota-form-group textarea.near-limit {
     border-color: #fd7e14;
     box-shadow: 0 0 0 2px rgba(253, 126, 20, 0.1);
+}
+
+/* Combined word count container */
+.combined-word-count-container {
+    margin: 15px 0;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+
+.combined-word-count {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.combined-word-count .word-count {
+    font-weight: bold;
+    color: #0066cc;
+}
+
+.combined-word-count.over-limit .word-count {
+    color: #d63384;
+}
+
+.combined-word-count.near-limit .word-count {
+    color: #fd7e14;
+}
+
+.combined-word-count-container .help-text {
+    font-size: 12px;
+    color: #666;
+    font-style: italic;
 }
 
 .hkota-form-group h4 {
@@ -371,6 +405,12 @@
     font-weight: 500;
     color: #333;
     margin: 0;
+}
+
+.optional-label {
+    font-weight: 400;
+    color: #666;
+    font-size: 0.9em;
 }
 
 .keyword-field input {

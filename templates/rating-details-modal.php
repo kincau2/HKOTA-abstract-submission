@@ -294,7 +294,7 @@
 
 .rating-criteria h6,
 .rating-comments h6 {
-    margin: 0 0 10px 0;
+    margin: 15px 0 10px 0;
     color: #333;
     font-size: 16px;
     font-weight: 600;

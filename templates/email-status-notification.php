@@ -2,7 +2,34 @@
 /**
  * Email template for status notification
  * Available variables: $submission object, $status string
+ * 
+ * This template routes to specific email templates based on status
  */
+
+// Route to specific email templates based on status
+switch ($status) {
+    case 'accepted_oral':
+        include(dirname(__FILE__) . '/email-accept-oral.php');
+        return;
+        
+    case 'accepted_poster':
+        include(dirname(__FILE__) . '/email-accept-poster.php');
+        return;
+        
+    case 'rejected':
+        include(dirname(__FILE__) . '/email-reject.php');
+        return;
+        
+    case 'awaiting_upload':
+        // Use the existing awaiting upload template below
+        break;
+        
+    default:
+        // Use the existing template for other statuses
+        break;
+}
+
+// Existing template for awaiting_upload and other statuses
 $status_messages = array(
     'awaiting_upload' => 'Congratulations! Your abstract has been accepted and is now awaiting supporting document upload.',
     'completed' => 'Congratulations! Your abstract submission is complete.',

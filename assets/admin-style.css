@@ -33,6 +33,14 @@
     background-color: #27ae60;
 }
 
+.status-badge.status-accepted_oral {
+    background-color: #2e7d32; /* Green for oral presentations */
+}
+
+.status-badge.status-accepted_poster {
+    background-color: #1976d2; /* Blue for poster presentations */
+}
+
 .status-badge.status-awaiting_upload {
     background-color: #f39c12;
 }
